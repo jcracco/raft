@@ -146,10 +146,14 @@ function buildForecastTable(project, remaining, nextNumber, nextYear) {
         currentRem = Math.max(0, currentRem - currentDone);
         goodRem    = Math.max(0, goodRem    - goodDone);
 
+        const start_date = sprintStartDate(project, number, year);
+        const end_date   = start_date ? sprintEndDate(start_date, project.sprint_duration_weeks) : null;
         rows.push({
             sprint_name:   sprintName(project, number, year),
             sprint_number: number,
             sprint_year:   year,
+            start_date,
+            end_date,
             bad_done: badDone,     bad_remaining:  badRem,
             cur_done: currentDone, cur_remaining:  currentRem,
             good_done: goodDone,   good_remaining: goodRem,

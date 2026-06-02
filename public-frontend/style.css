@@ -226,6 +226,7 @@ h1, .nav-logo, .nav-eyebrow, .page-title, .login-logo, .login-sub { font-family:
 .scenario-label.good    { color: var(--good); }
 .scenario-sprint { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
 .scenario-detail { font-size: 12px; color: var(--text-muted); }
+.scenario-date { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
 /* ── Project view layout ── */
 .project-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }

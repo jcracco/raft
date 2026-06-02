@@ -79,8 +79,25 @@ function previewSprintName(prefix, useYear, yearFmt, numFmt, startYear, startNum
     return `${p} ${y}.${num}`;
 }
 
+// ── Sprint end-date helper (mirrors mock-api / PHP logic) ─────────────────────
+function sprintEndDateFromProject(project, sprint_number, sprint_year) {
+    if (!project || !project.cadence_start_date || !project.sprint_duration_weeks) return null;
+    const anchor   = new Date(project.cadence_start_date);
+    const duration = project.sprint_duration_weeks;
+    let offset;
+    if (project.use_year && sprint_year != null) {
+        const sprintsPerYear = Math.floor(52 / duration);
+        offset = (sprint_year - anchor.getUTCFullYear()) * sprintsPerYear + (sprint_number - 1);
+    } else {
+        offset = sprint_number - 1;
+    }
+    const d = new Date(anchor);
+    d.setUTCDate(d.getUTCDate() + offset * duration * 7 + duration * 7 - 1);
+    return d.toISOString().split('T')[0];
+}
+
 // ── LoginPage ───────────────────────────────────────────────────────────────
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, theme, onThemeToggle }) {
     const [username, setUsername] = useState(IS_DEMO ? 'demo' : '');
     const [password, setPassword] = useState(IS_DEMO ? 'demo' : '');
     const [error, setError]       = useState('');
@@ -101,6 +118,9 @@ function LoginPage({ onLogin }) {
 
     return (
         <div className="login-wrap">
+            <div style={{position:'fixed',top:16,right:20}}>
+                <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
+            </div>
             <div className="login-box">
                 <div className="login-logo">RAFT</div>
                 <div className="login-sub">Range And Forecasting Tool</div>
@@ -126,7 +146,13 @@ function LoginPage({ onLogin }) {
 // ── ProjectModal ─────────────────────────────────────────────────────────────
 function ProjectModal({ project, onSave, onClose }) {
     const editing = !!project;
-    const [form, setForm] = useState(project ? { ...project } : {
+    const [form, setForm] = useState(project ? {
+        ...project,
+        pointed_sp:              Math.round(project.pointed_sp              || 0),
+        estimated_additional_sp: Math.round(project.estimated_additional_sp || 0),
+        buffer_pct:              Math.round(project.buffer_pct              || 0),
+        avg_velocity:            Math.round(project.avg_velocity            || 0),
+    } : {
         project_name: '', initiative_name: '', initiative_link: '',
         team_name: '', team_link: '', pointed_sp: '', estimated_additional_sp: '',
         buffer_pct: 25, avg_velocity: '', velocity_auto: false,
@@ -135,10 +161,61 @@ function ProjectModal({ project, onSave, onClose }) {
         sprint_duration_weeks: 2, cadence_start_date: '',
         initiative_start_year: new Date().getFullYear(), initiative_start_number: 1,
     });
-    const [saving, setSaving]   = useState(false);
-    const [error, setError]     = useState('');
+    const [useDates, setUseDates] = useState(!!(project?.cadence_start_date));
+    const [saving, setSaving]     = useState(false);
+    const [error, setError]       = useState('');
 
-    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+    const set    = (k, v) => setForm(f => ({ ...f, [k]: v }));
+    const setNum = (k, min, max) => e => {
+        const v = e.target.value;
+        if (v === '') { set(k, ''); return; }
+        const n = parseInt(v);
+        if (!isNaN(n)) set(k, Math.min(max, Math.max(min, n)));
+    };
+
+    // Build sprint name dropdown options
+    const { sprintOptions, sprintOptionGroups } = useMemo(() => {
+        const duration      = Math.max(1, parseInt(form.sprint_duration_weeks) || 2);
+        const sprintsPerYear = Math.floor(52 / duration);
+        if (!form.use_year) {
+            const opts = Array.from({ length: 52 }, (_, i) => ({
+                value: `0:${i + 1}`,
+                label: previewSprintName(form.sprint_prefix, false, form.year_format, form.number_format, null, i + 1),
+                year: null, num: i + 1,
+            }));
+            return { sprintOptions: opts, sprintOptionGroups: null };
+        }
+        const cur  = new Date().getFullYear();
+        const years = [cur - 1, cur, cur + 1];
+        const opts  = years.flatMap(year =>
+            Array.from({ length: sprintsPerYear }, (_, i) => ({
+                value: `${year}:${i + 1}`,
+                label: previewSprintName(form.sprint_prefix, true, form.year_format, form.number_format, year, i + 1),
+                year, num: i + 1,
+            }))
+        );
+        const groups = {};
+        opts.forEach(o => { (groups[o.year] = groups[o.year] || []).push(o); });
+        return {
+            sprintOptions: opts,
+            sprintOptionGroups: Object.entries(groups).sort(([a], [b]) => Number(a) - Number(b)),
+        };
+    }, [form.sprint_prefix, form.use_year, form.year_format, form.number_format, form.sprint_duration_weeks]);
+
+    const selectedSprintVal = form.use_year
+        ? `${form.initiative_start_year || new Date().getFullYear()}:${form.initiative_start_number || 1}`
+        : `0:${form.initiative_start_number || 1}`;
+
+    function handleSprintSelect(val) {
+        const [yearStr, numStr] = val.split(':');
+        set('initiative_start_number', parseInt(numStr));
+        if (form.use_year) set('initiative_start_year', parseInt(yearStr));
+    }
+
+    function handleUseDatesToggle(checked) {
+        setUseDates(checked);
+        if (!checked) set('cadence_start_date', '');
+    }
 
     async function handleSave() {
         if (!form.project_name || !form.pointed_sp || !form.avg_velocity || !form.initiative_start_number) {
@@ -146,8 +223,10 @@ function ProjectModal({ project, onSave, onClose }) {
         }
         setSaving(true); setError('');
         try {
+            const payload = { ...form };
+            if (!useDates) payload.cadence_start_date = '';
             const action = editing ? 'update_project' : 'create_project';
-            const result = await api(action, { ...form, id: project?.id }, 'POST');
+            const result = await api(action, { ...payload, id: project?.id }, 'POST');
             onSave(result.id);
         } catch (err) {
             setError(err.message);
@@ -156,7 +235,9 @@ function ProjectModal({ project, onSave, onClose }) {
         }
     }
 
-    const preview = previewSprintName(form.sprint_prefix, form.use_year, form.year_format, form.number_format, form.initiative_start_year, form.initiative_start_number);
+    // Preview: show first 2 sprints in the current year (format demonstration)
+    const previewStartIdx = form.use_year ? sprintOptions.findIndex(o => o.year === new Date().getFullYear()) : 0;
+    const previewLabels   = sprintOptions.slice(Math.max(0, previewStartIdx), Math.max(0, previewStartIdx) + 2).map(o => o.label);
 
     return (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -166,12 +247,12 @@ function ProjectModal({ project, onSave, onClose }) {
 
                 <div className="form-group">
                     <label className="form-label">Project Name <span className="required">*</span></label>
-                    <input className="form-input" value={form.project_name} onChange={e => set('project_name', e.target.value)} placeholder="e.g. Platform Modernization" />
+                    <input className="form-input" maxLength={100} value={form.project_name} onChange={e => set('project_name', e.target.value)} placeholder="e.g. Platform Modernization" />
                 </div>
                 <div className="form-row">
                     <div className="form-group">
                         <label className="form-label">Initiative Name</label>
-                        <input className="form-input" value={form.initiative_name || ''} onChange={e => set('initiative_name', e.target.value)} placeholder="Optional" />
+                        <input className="form-input" maxLength={100} value={form.initiative_name || ''} onChange={e => set('initiative_name', e.target.value)} placeholder="Optional" />
                     </div>
                     <div className="form-group">
                         <label className="form-label">Initiative Link</label>
@@ -181,7 +262,7 @@ function ProjectModal({ project, onSave, onClose }) {
                 <div className="form-row">
                     <div className="form-group">
                         <label className="form-label">Team Name</label>
-                        <input className="form-input" value={form.team_name || ''} onChange={e => set('team_name', e.target.value)} placeholder="Optional" />
+                        <input className="form-input" maxLength={100} value={form.team_name || ''} onChange={e => set('team_name', e.target.value)} placeholder="Optional" />
                     </div>
                     <div className="form-group">
                         <label className="form-label">Team Link</label>
@@ -193,30 +274,30 @@ function ProjectModal({ project, onSave, onClose }) {
                 <div className="form-row">
                     <div className="form-group">
                         <label className="form-label">Pointed Story Points <span className="required">*</span></label>
-                        <input className="form-input" type="number" min="1" value={form.pointed_sp} onChange={e => set('pointed_sp', e.target.value)} placeholder="e.g. 120" />
+                        <input className="form-input" type="number" min="1" max="999" value={form.pointed_sp} onChange={setNum('pointed_sp', 1, 999)} placeholder="e.g. 120" />
                     </div>
                     <div className="form-group">
                         <label className="form-label">Est. Additional SP</label>
-                        <input className="form-input" type="number" min="0" value={form.estimated_additional_sp || ''} onChange={e => set('estimated_additional_sp', e.target.value)} placeholder="Unpointed stories" />
+                        <input className="form-input" type="number" min="0" max="999" value={form.estimated_additional_sp || ''} onChange={setNum('estimated_additional_sp', 0, 999)} placeholder="Unpointed stories" />
                         <div className="form-hint">Stories not yet estimated</div>
                     </div>
                 </div>
                 <div className="form-row">
                     <div className="form-group">
                         <label className="form-label">Buffer %</label>
-                        <input className="form-input" type="number" min="0" max="100" value={form.buffer_pct} onChange={e => set('buffer_pct', e.target.value)} />
+                        <input className="form-input" type="number" min="0" max="100" value={form.buffer_pct} onChange={setNum('buffer_pct', 0, 100)} />
                     </div>
                     <div className="form-group">
                         <label className="form-label">Avg Team Velocity <span className="required">*</span></label>
-                        <input className="form-input" type="number" min="1" value={form.avg_velocity} onChange={e => set('avg_velocity', e.target.value)} placeholder="SP per sprint" />
+                        <input className="form-input" type="number" min="1" max="999" value={form.avg_velocity} onChange={setNum('avg_velocity', 1, 999)} placeholder="SP per sprint" />
                     </div>
                 </div>
 
-                <div className="form-section-title">Sprint Configuration</div>
+                <div className="form-section-title">Sprint Naming</div>
                 <div className="form-row">
                     <div className="form-group">
                         <label className="form-label">Sprint Prefix</label>
-                        <input className="form-input" value={form.sprint_prefix} onChange={e => set('sprint_prefix', e.target.value)} placeholder="Sprint" />
+                        <input className="form-input" maxLength={100} value={form.sprint_prefix} onChange={e => set('sprint_prefix', e.target.value)} placeholder="Sprint" />
                     </div>
                     <div className="form-group">
                         <label className="form-label">Number Format</label>
@@ -243,34 +324,44 @@ function ProjectModal({ project, onSave, onClose }) {
                         </div>
                     )}
                 </div>
+                <div className="sprint-preview">Preview: {previewLabels.join(', ')}, …</div>
 
                 <div className="form-section-title">Initiative Start</div>
-                <div className="form-row">
-                    {form.use_year && (
-                        <div className="form-group">
-                            <label className="form-label">Start Year</label>
-                            <input className="form-input" type="number" min="2020" max="2099" value={form.initiative_start_year || ''} onChange={e => set('initiative_start_year', e.target.value)} placeholder="e.g. 2026" />
-                        </div>
-                    )}
-                    <div className="form-group">
-                        <label className="form-label">Start Sprint # <span className="required">*</span></label>
-                        <input className="form-input" type="number" min="1" value={form.initiative_start_number} onChange={e => set('initiative_start_number', e.target.value)} placeholder="e.g. 12" />
-                    </div>
+                <div className="form-group">
+                    <label className="form-label">Starting Sprint <span className="required">*</span></label>
+                    <select className="form-input" value={selectedSprintVal} onChange={e => handleSprintSelect(e.target.value)}>
+                        {sprintOptionGroups
+                            ? sprintOptionGroups.map(([year, opts]) => (
+                                <optgroup key={year} label={String(year)}>
+                                    {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </optgroup>
+                            ))
+                            : sprintOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)
+                        }
+                    </select>
                 </div>
-                <div className="sprint-preview">Preview: {preview}, {previewSprintName(form.sprint_prefix, form.use_year, form.year_format, form.number_format, form.initiative_start_year, (parseInt(form.initiative_start_number)||1)+1)}, …</div>
 
-                <div className="form-section-title">Sprint Dates (optional)</div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label className="form-label">Team Cadence Start Date</label>
-                        <input className="form-input" type="date" value={form.cadence_start_date || ''} onChange={e => set('cadence_start_date', e.target.value)} />
-                        <div className="form-hint">Date of sprint #1 for this team</div>
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">Sprint Duration (weeks)</label>
-                        <input className="form-input" type="number" min="1" max="8" value={form.sprint_duration_weeks || ''} onChange={e => set('sprint_duration_weeks', e.target.value)} placeholder="e.g. 2" />
-                    </div>
+                <div className="form-section-title">Sprint Dates</div>
+                <div className="form-group" style={{marginBottom: useDates ? 16 : 0}}>
+                    <label className="form-checkbox">
+                        <input type="checkbox" checked={useDates} onChange={e => handleUseDatesToggle(e.target.checked)} />
+                        Use sprint dates
+                    </label>
+                    <div className="form-hint">Show start/end dates in forecast tables and scenario cards</div>
                 </div>
+                {useDates && (
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label className="form-label">Team Cadence Start Date</label>
+                            <input className="form-input" type="date" value={form.cadence_start_date || ''} onChange={e => set('cadence_start_date', e.target.value)} />
+                            <div className="form-hint">Date of sprint #1 for this team</div>
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Sprint Duration (weeks)</label>
+                            <input className="form-input" type="number" min="1" max="8" value={form.sprint_duration_weeks || ''} onChange={e => set('sprint_duration_weeks', e.target.value)} placeholder="e.g. 2" />
+                        </div>
+                    </div>
+                )}
 
                 <div className="modal-actions">
                     <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
@@ -326,17 +417,28 @@ function CompleteSprintModal({ sprintName, sprintNumber, sprintYear, onSave, onC
                 {error && <div className="error-msg" style={{marginBottom:16}}>{error}</div>}
                 <div className="form-group">
                     <label className="form-label">Total Sprint Points (team velocity this sprint)</label>
-                    <input className="form-input" type="number" min="0" value={totalSP} onChange={e => setTotalSP(e.target.value)} placeholder="e.g. 48" autoFocus />
+                    <input className="form-input" type="number" min="0" value={totalSP} onChange={e => {
+                        const v = e.target.value;
+                        setTotalSP(v);
+                        if (v !== '' && initDone !== '' && parseInt(initDone) > parseInt(v)) {
+                            setInitDone(String(Math.max(0, parseInt(v))));
+                        }
+                    }} placeholder="e.g. 48" autoFocus />
                 </div>
                 <div className="form-group">
                     <label className="form-label">Initiative Work Done (points toward this initiative)</label>
-                    <input className="form-input" type="number" min="0" value={initDone} onChange={e => setInitDone(e.target.value)} placeholder="e.g. 28" />
+                    <input className="form-input" type="number" min="0" max={totalSP || undefined} value={initDone}
+                        onChange={e => {
+                            const v = e.target.value;
+                            if (v === '') { setInitDone(''); return; }
+                            const raw = parseInt(v);
+                            if (isNaN(raw)) return;
+                            setInitDone(String(totalSP && raw > parseInt(totalSP) ? parseInt(totalSP) : Math.max(0, raw)));
+                        }} placeholder="e.g. 28" />
                 </div>
-                {totalSP && initDone && (
-                    <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:8}}>
-                        Focus: {Math.round((parseInt(initDone)/parseInt(totalSP))*100)}%
-                    </div>
-                )}
+                <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:8}}>
+                    Focus: {totalSP && initDone ? `${Math.round((parseInt(initDone)/parseInt(totalSP))*100)}%` : '—'}
+                </div>
                 <div className="modal-actions">
                     <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
                     <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
@@ -740,6 +842,11 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
     const curEnd  = forecast_table.find(r => r.cur_remaining === 0);
     const goodEnd = forecast_table.find(r => r.good_remaining === 0);
 
+    const badEndDate  = badEnd  ? sprintEndDateFromProject(project, badEnd.sprint_number,  badEnd.sprint_year)  : null;
+    const curEndDate  = curEnd  ? sprintEndDateFromProject(project, curEnd.sprint_number,  curEnd.sprint_year)  : null;
+    const goodEndDate = goodEnd ? sprintEndDateFromProject(project, goodEnd.sprint_number, goodEnd.sprint_year) : null;
+    const canAutoHistory = done_table.length >= 3;
+
     const firstForecast = forecast_table[0];
 
     return (
@@ -800,16 +907,19 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                         <div className="scenario-label bad">Bad Weather (35%)</div>
                         <div className="scenario-sprint">{badEnd ? badEnd.sprint_name : '—'}</div>
                         <div className="scenario-detail">{badEnd ? `+${forecast_table.indexOf(badEnd)+1} sprints` : 'N/A'}</div>
+                        {badEndDate && <div className="scenario-date">{badEndDate}</div>}
                     </div>
                     <div className="scenario-card active">
                         <div className="scenario-label current">Current Weather ({Math.round(project.current_weather_pct)}%)</div>
                         <div className="scenario-sprint">{curEnd ? curEnd.sprint_name : '—'}</div>
                         <div className="scenario-detail">{curEnd ? `+${forecast_table.indexOf(curEnd)+1} sprints` : 'N/A'}</div>
+                        {curEndDate && <div className="scenario-date">{curEndDate}</div>}
                     </div>
                     <div className="scenario-card">
                         <div className="scenario-label good">Good Weather (75%)</div>
                         <div className="scenario-sprint">{goodEnd ? goodEnd.sprint_name : '—'}</div>
                         <div className="scenario-detail">{goodEnd ? `+${forecast_table.indexOf(goodEnd)+1} sprints` : 'N/A'}</div>
+                        {goodEndDate && <div className="scenario-date">{goodEndDate}</div>}
                     </div>
                 </div>
 
@@ -837,8 +947,11 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                                 disabled={!!project.velocity_auto}
                                 onChange={e => setVelocityVal(e.target.value)}
                                 onPointerUp={e => updateSetting('avg_velocity', e.target.value)} />
-                            <label className="auto-toggle">
+                            <label className="auto-toggle"
+                                title={!canAutoHistory ? 'At least 3 completed sprints needed for history' : ''}
+                                style={!canAutoHistory ? {opacity:0.45,cursor:'not-allowed'} : {}}>
                                 <input type="checkbox" checked={!!project.velocity_auto}
+                                    disabled={!canAutoHistory}
                                     onChange={e => updateSetting('velocity_auto', e.target.checked ? 1 : 0)} />
                                 Auto (from history)
                             </label>
@@ -854,8 +967,11 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                                 disabled={!!project.weather_auto}
                                 onChange={e => setWeatherVal(e.target.value)}
                                 onPointerUp={e => updateSetting('current_weather_pct', e.target.value)} />
-                            <label className="auto-toggle">
+                            <label className="auto-toggle"
+                                title={!canAutoHistory ? 'At least 3 completed sprints needed for history' : ''}
+                                style={!canAutoHistory ? {opacity:0.45,cursor:'not-allowed'} : {}}>
                                 <input type="checkbox" checked={!!project.weather_auto}
+                                    disabled={!canAutoHistory}
                                     onChange={e => updateSetting('weather_auto', e.target.checked ? 1 : 0)} />
                                 Auto (from history)
                             </label>
@@ -1010,7 +1126,7 @@ function App() {
     const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
     if (view === 'loading')   return <div className="loading"><div className="spinner" /></div>;
-    if (view === 'login')     return <LoginPage onLogin={u => { setUsername(u); setView('list'); }} />;
+    if (view === 'login')     return <LoginPage onLogin={u => { setUsername(u); setView('list'); }} theme={theme} onThemeToggle={toggleTheme} />;
     if (view === 'project')   return <ProjectViewPage projectId={projectId} onBack={() => setView('list')} theme={theme} onThemeToggle={toggleTheme} />;
     if (view === 'quickplan') return <QuickPlanPage onBack={() => setView('list')} theme={theme} onThemeToggle={toggleTheme} />;
 
