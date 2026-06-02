@@ -6,6 +6,7 @@ public-frontend/bootstrap.php
 
 # Local only
 other/
+private-backend/config.local.php
 
 # Session tokens (runtime file, contains active login tokens)
 private-backend/session_tokens.json

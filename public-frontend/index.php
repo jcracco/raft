@@ -38,13 +38,16 @@ $IS_DEMO = is_demo();
 </head>
 <body>
 <?php if ($IS_DEMO): ?>
-<div class="demo-banner">Demo mode — enter your numbers and see your delivery range. Sign in for full tracking, multi-project support, and sprint history.</div>
+<div class="demo-banner">
+    <span>⚠ <strong>Demo version</strong> — all data is fictional. Changes reset when you close the tab.</span>
+    <a href="https://github.com/jcracco/" target="_blank" rel="noreferrer" class="demo-banner-link">View on GitHub ↗</a>
+</div>
 <?php endif; ?>
 
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 const IS_DEMO = <?= $IS_DEMO ? 'true' : 'false' ?>;
 
 // ── API helper ──────────────────────────────────────────────────────────────
@@ -497,8 +500,108 @@ function BurndownChart({ doneTable, forecastTable, totalPoints, creepPoints, the
     );
 }
 
+// ── QuickPlanPage ─────────────────────────────────────────────────────────────
+function QuickPlanPage({ onBack, theme, onThemeToggle }) {
+    const [sp,       setSp]      = useState(200);
+    const [velocity, setVel]     = useState(40);
+    const [weather,  setWeather] = useState(55);
+
+    const forecastTable = useMemo(() => {
+        const v = Math.max(1, velocity);
+        const badPct = 0.35, curPct = weather / 100, goodPct = 0.75;
+        let bR = sp, cR = sp, gR = sp, num = 1;
+        const rows = [];
+        while ((bR > 0 || cR > 0 || gR > 0) && num <= 100) {
+            const bD = Math.min(bR, Math.round(v * badPct));
+            const cD = Math.min(cR, Math.round(v * curPct));
+            const gD = Math.min(gR, Math.round(v * goodPct));
+            bR = Math.max(0, bR - bD);
+            cR = Math.max(0, cR - cD);
+            gR = Math.max(0, gR - gD);
+            rows.push({
+                sprint_name: `Sprint ${String(num).padStart(2,'0')}`,
+                sprint_number: num, sprint_year: null,
+                bad_done: bD, bad_remaining: bR,
+                cur_done: cD, cur_remaining: cR,
+                good_done: gD, good_remaining: gR,
+            });
+            num++;
+        }
+        return rows;
+    }, [sp, velocity, weather]);
+
+    const countSprints = key => {
+        const i = forecastTable.findIndex(r => r[key] === 0);
+        return i >= 0 ? i + 1 : forecastTable.length;
+    };
+
+    return (
+        <>
+            <nav className="nav">
+                <h1 className="nav-logo"><div className="nav-eyebrow">Range And Forecasting Tool</div><div>RAFT</div></h1>
+                <div className="nav-right">
+                    <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
+                    <button className="btn btn-ghost btn-sm" onClick={onBack}>← Back</button>
+                </div>
+            </nav>
+            <div className="main">
+                <div className="page-header" style={{marginBottom:4}}>
+                    <div className="page-title">Quick Plan</div>
+                </div>
+                <p style={{color:'var(--text-muted)',fontSize:12,marginBottom:24}}>Enter your numbers and see your delivery range instantly. Nothing is saved.</p>
+                <div className="project-layout">
+                    <div className="card">
+                        <div className="card-title">Inputs</div>
+                        <div className="settings-row">
+                            <div className="settings-label">Total Story Points</div>
+                            <input type="number" className="settings-input" min="1" value={sp}
+                                onChange={e => setSp(Math.max(1, parseInt(e.target.value) || 1))} />
+                        </div>
+                        <div className="settings-row">
+                            <div className="settings-label">Avg Velocity</div>
+                            <input type="range" min="1" max="150" value={velocity} onChange={e => setVel(parseInt(e.target.value))} />
+                            <span style={{fontSize:12,fontWeight:600,color:'var(--accent)'}}>{velocity} pts / sprint</span>
+                        </div>
+                        <div className="settings-row" style={{marginBottom:0}}>
+                            <div className="settings-label">Current Weather %</div>
+                            <input type="range" min="1" max="100" value={weather} onChange={e => setWeather(parseInt(e.target.value))} />
+                            <span style={{fontSize:12,fontWeight:600,color:'var(--accent)'}}>{weather}%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div className="scenario-grid">
+                            <div className="scenario-card">
+                                <div className="scenario-label bad">Bad (35%)</div>
+                                <div className="scenario-sprint">{countSprints('bad_remaining')}</div>
+                                <div className="scenario-detail">sprints</div>
+                            </div>
+                            <div className="scenario-card active">
+                                <div className="scenario-label current">Current ({weather}%)</div>
+                                <div className="scenario-sprint">{countSprints('cur_remaining')}</div>
+                                <div className="scenario-detail">sprints</div>
+                            </div>
+                            <div className="scenario-card">
+                                <div className="scenario-label good">Good (75%)</div>
+                                <div className="scenario-sprint">{countSprints('good_remaining')}</div>
+                                <div className="scenario-detail">sprints</div>
+                            </div>
+                        </div>
+                        <BurndownChart
+                            doneTable={[]}
+                            forecastTable={forecastTable}
+                            totalPoints={sp}
+                            creepPoints={0}
+                            theme={theme}
+                        />
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+}
+
 // ── ProjectListPage ────────────────────────────────────────────────────────────
-function ProjectListPage({ onOpen, onLogout, theme, onThemeToggle }) {
+function ProjectListPage({ onOpen, onQuickPlan, onLogout, theme, onThemeToggle }) {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading]   = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -531,7 +634,7 @@ function ProjectListPage({ onOpen, onLogout, theme, onThemeToggle }) {
                 <h1 className="nav-logo"><div className="nav-eyebrow">Range And Forecasting Tool</div><div>RAFT</div></h1>
                 <div className="nav-right">
                     <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
-                    <button className="btn btn-ghost btn-sm" onClick={onLogout}>Sign out</button>
+                    {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onLogout}>Sign out</button>}
                 </div>
             </nav>
             <div className="main">
@@ -541,36 +644,42 @@ function ProjectListPage({ onOpen, onLogout, theme, onThemeToggle }) {
                 </div>
                 {loading ? (
                     <div className="loading"><div className="spinner" /> Loading…</div>
-                ) : projects.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-state-title">No projects yet</div>
-                        <p>Create your first project to start forecasting.</p>
-                        <button className="btn btn-primary" style={{marginTop:16}} onClick={() => setShowModal(true)}>+ New Project</button>
-                    </div>
                 ) : (
-                    <div className="project-grid">
-                        {projects.map(p => (
-                            <div className="project-card" key={p.id} onClick={() => onOpen(p.id)}>
-                                <div className="project-card-name">{p.project_name}</div>
-                                <div className="project-card-meta">{p.team_name || 'No team'} · {p.current_sprint_name}</div>
-                                <div className="project-card-stats">
-                                    <div>
-                                        <div className="project-stat-label">Remaining</div>
-                                        <div className="project-stat-value">{Math.round(p.points_remaining)}</div>
-                                    </div>
-                                    <div>
-                                        <div className="project-stat-label">Total</div>
-                                        <div className="project-stat-value" style={{color:'var(--text-dim)'}}>{Math.round(p.total_points)}</div>
-                                    </div>
-                                </div>
-                                {!IS_DEMO && (
-                                    <div className="project-card-actions" onClick={e => e.stopPropagation()}>
-                                        <button className="btn btn-danger btn-sm" onClick={() => setDeleteTarget(p)}>Delete</button>
-                                    </div>
-                                )}
+                    <>
+                        <div className="project-grid">
+                            <div className="project-card project-card-quickplan" onClick={onQuickPlan}>
+                                <div className="project-card-name">Quick Plan</div>
+                                <div className="project-card-meta">Enter points and velocity, see your delivery range instantly</div>
+                                <div style={{marginTop:12,fontSize:12,color:'var(--accent)'}}>No setup required →</div>
                             </div>
-                        ))}
-                    </div>
+                            {projects.map(p => (
+                                <div className="project-card" key={p.id} onClick={() => onOpen(p.id)}>
+                                    <div className="project-card-name">{p.project_name}</div>
+                                    <div className="project-card-meta">{p.team_name || 'No team'} · {p.current_sprint_name}</div>
+                                    <div className="project-card-stats">
+                                        <div>
+                                            <div className="project-stat-label">Remaining</div>
+                                            <div className="project-stat-value">{Math.round(p.points_remaining)}</div>
+                                        </div>
+                                        <div>
+                                            <div className="project-stat-label">Total</div>
+                                            <div className="project-stat-value" style={{color:'var(--text-dim)'}}>{Math.round(p.total_points)}</div>
+                                        </div>
+                                    </div>
+                                    {!IS_DEMO && (
+                                        <div className="project-card-actions" onClick={e => e.stopPropagation()}>
+                                            <button className="btn btn-danger btn-sm" onClick={() => setDeleteTarget(p)}>Delete</button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        {projects.length === 0 && !IS_DEMO && (
+                            <p style={{color:'var(--text-muted)',fontSize:12,marginTop:16,textAlign:'center'}}>
+                                No projects yet — <span style={{color:'var(--accent)',cursor:'pointer'}} onClick={() => setShowModal(true)}>create your first project →</span>
+                            </p>
+                        )}
+                    </>
                 )}
             </div>
             {showModal && <ProjectModal onSave={() => { setShowModal(false); loadProjects(); }} onClose={() => setShowModal(false)} />}
@@ -639,7 +748,7 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                 <h1 className="nav-logo"><div className="nav-eyebrow">Range And Forecasting Tool</div><div>RAFT</div></h1>
                 <div className="nav-right">
                     <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
-                    {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onBack}>← Projects</button>}
+                    <button className="btn btn-ghost btn-sm" onClick={onBack}>← Projects</button>
                 </div>
             </nav>
             <div className="main">
@@ -659,30 +768,17 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                 <div className="summary-table" style={{marginTop:20}}>
                     <div className="summary-cell">
                         <div className="summary-cell-label">Initiative</div>
-                        {IS_DEMO ? (
-                            <input className="settings-input" value={initiativeVal}
-                                onChange={e => setInitiativeVal(e.target.value)}
-                                onBlur={() => updateSetting('initiative_name', initiativeVal)}
-                                placeholder={project.project_name} />
-                        ) : (
-                            <div className="summary-cell-value" style={{fontSize:14}}>
-                                {project.initiative_link
-                                    ? <a href={project.initiative_link} target="_blank" rel="noopener" style={{color:'var(--accent)'}}>{project.initiative_name || project.project_name}</a>
-                                    : (project.initiative_name || project.project_name)}
-                            </div>
-                        )}
+                        <div className="summary-cell-value" style={{fontSize:14}}>
+                            {project.initiative_link
+                                ? <a href={project.initiative_link} target="_blank" rel="noopener" style={{color:'var(--accent)'}}>{project.initiative_name || project.project_name}</a>
+                                : (project.initiative_name || project.project_name)}
+                        </div>
                     </div>
                     <div className="summary-cell">
                         <div className="summary-cell-label">Pointed SP</div>
-                        {IS_DEMO ? (
-                            <input className="settings-input" type="number" min="1" value={pointedSpVal}
-                                onChange={e => setPointedSpVal(e.target.value)}
-                                onBlur={() => updateSetting('pointed_sp', pointedSpVal)} />
-                        ) : (
-                            <div className="summary-cell-value">{project.pointed_sp}</div>
-                        )}
+                        <div className="summary-cell-value">{project.pointed_sp}</div>
                     </div>
-                    {!IS_DEMO && project.estimated_additional_sp && (
+                    {project.estimated_additional_sp > 0 && (
                         <div className="summary-cell">
                             <div className="summary-cell-label">Est. Additional</div>
                             <div className="summary-cell-value">{project.estimated_additional_sp}</div>
@@ -690,13 +786,7 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                     )}
                     <div className="summary-cell">
                         <div className="summary-cell-label">Buffer %</div>
-                        {IS_DEMO ? (
-                            <input className="settings-input" type="number" min="0" max="100" value={bufferVal}
-                                onChange={e => setBufferVal(e.target.value)}
-                                onBlur={() => updateSetting('buffer_pct', bufferVal)} />
-                        ) : (
-                            <div className="summary-cell-value">{Math.round(project.buffer_pct)}%</div>
-                        )}
+                        <div className="summary-cell-value">{Math.round(project.buffer_pct)}%</div>
                     </div>
                     <div className="summary-cell">
                         <div className="summary-cell-label">Total Points</div>
@@ -744,16 +834,14 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                             </div>
                             <input type="range" min="1" max="150"
                                 value={velocityVal}
-                                disabled={!IS_DEMO && !!project.velocity_auto}
+                                disabled={!!project.velocity_auto}
                                 onChange={e => setVelocityVal(e.target.value)}
                                 onPointerUp={e => updateSetting('avg_velocity', e.target.value)} />
-                            {!IS_DEMO && (
-                                <label className="auto-toggle">
-                                    <input type="checkbox" checked={!!project.velocity_auto}
-                                        onChange={e => updateSetting('velocity_auto', e.target.checked ? 1 : 0)} />
-                                    Auto (from history)
-                                </label>
-                            )}
+                            <label className="auto-toggle">
+                                <input type="checkbox" checked={!!project.velocity_auto}
+                                    onChange={e => updateSetting('velocity_auto', e.target.checked ? 1 : 0)} />
+                                Auto (from history)
+                            </label>
                         </div>
 
                         <div className="settings-row">
@@ -763,34 +851,28 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                             </div>
                             <input type="range" min="1" max="100"
                                 value={weatherVal}
-                                disabled={!IS_DEMO && !!project.weather_auto}
+                                disabled={!!project.weather_auto}
                                 onChange={e => setWeatherVal(e.target.value)}
                                 onPointerUp={e => updateSetting('current_weather_pct', e.target.value)} />
-                            {!IS_DEMO && (
-                                <label className="auto-toggle">
-                                    <input type="checkbox" checked={!!project.weather_auto}
-                                        onChange={e => updateSetting('weather_auto', e.target.checked ? 1 : 0)} />
-                                    Auto (from history)
-                                </label>
-                            )}
+                            <label className="auto-toggle">
+                                <input type="checkbox" checked={!!project.weather_auto}
+                                    onChange={e => updateSetting('weather_auto', e.target.checked ? 1 : 0)} />
+                                Auto (from history)
+                            </label>
                         </div>
 
-                        {!IS_DEMO && (
-                            <div className="settings-row">
-                                <div className="settings-label">Scope Creep +SP</div>
-                                <input className="settings-input" type="number" min="0" value={creepPoints}
-                                    onChange={e => setCreepPoints(parseInt(e.target.value) || 0)} />
-                                <div className="creep-note">Not saved — for quick what-if checks</div>
-                            </div>
-                        )}
+                        <div className="settings-row">
+                            <div className="settings-label">Scope Creep +SP</div>
+                            <input className="settings-input" type="number" min="0" value={creepPoints}
+                                onChange={e => setCreepPoints(parseInt(e.target.value) || 0)} />
+                            <div className="creep-note">Not saved — for quick what-if checks</div>
+                        </div>
 
-                        {!IS_DEMO && (
-                            <button className="btn btn-ghost btn-sm" style={{width:'100%',marginTop:12}} onClick={() => setEditModal(true)}>
-                                Edit All Settings
-                            </button>
-                        )}
+                        <button className="btn btn-ghost btn-sm" style={{width:'100%',marginTop:12}} onClick={() => setEditModal(true)}>
+                            Edit All Settings
+                        </button>
 
-                        {firstForecast && !IS_DEMO && (
+                        {firstForecast && (
                             <button className="btn btn-primary btn-sm" style={{width:'100%',marginTop:8}} onClick={() => setCompleteModal(true)}>
                                 Complete {current_sprint}
                             </button>
@@ -915,11 +997,8 @@ function App() {
 
     useEffect(() => {
         api('session').then(s => {
-            if (s.logged_in) {
-                setUsername(s.username);
-                if (IS_DEMO) { setProjectId(1); setView('project'); }
-                else setView('list');
-            } else setView('login');
+            if (s.logged_in) { setUsername(s.username); setView('list'); }
+            else setView('login');
         }).catch(() => setView('login'));
     }, []);
 
@@ -930,12 +1009,14 @@ function App() {
 
     const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
-    if (view === 'loading') return <div className="loading"><div className="spinner" /></div>;
-    if (view === 'login')   return <LoginPage onLogin={u => { setUsername(u); setView('list'); }} />;
-    if (view === 'project') return <ProjectViewPage projectId={projectId} onBack={() => setView('list')} theme={theme} onThemeToggle={toggleTheme} />;
+    if (view === 'loading')   return <div className="loading"><div className="spinner" /></div>;
+    if (view === 'login')     return <LoginPage onLogin={u => { setUsername(u); setView('list'); }} />;
+    if (view === 'project')   return <ProjectViewPage projectId={projectId} onBack={() => setView('list')} theme={theme} onThemeToggle={toggleTheme} />;
+    if (view === 'quickplan') return <QuickPlanPage onBack={() => setView('list')} theme={theme} onThemeToggle={toggleTheme} />;
 
     return <ProjectListPage
         onOpen={id => { setProjectId(id); setView('project'); }}
+        onQuickPlan={() => setView('quickplan')}
         onLogout={handleLogout}
         theme={theme}
         onThemeToggle={toggleTheme}
