@@ -291,6 +291,23 @@ function current_sprint(array $project, array $entries): array {
     return next_sprint($project, (int) $last['sprint_number'], $last['sprint_year'] ? (int) $last['sprint_year'] : null);
 }
 
+// Allow only http/https URLs; anything else (javascript:, data:, etc.) is rejected.
+function sanitize_url(?string $url): ?string {
+    if (!$url) return null;
+    $url = trim($url);
+    if (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('/^https?:\/\//i', $url)) return null;
+    return substr($url, 0, 500);
+}
+
+// Accept only YYYY-MM-DD dates that are calendar-valid.
+function sanitize_date(?string $d): ?string {
+    if (!$d) return null;
+    $d = trim($d);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) return null;
+    [$y, $m, $day] = explode('-', $d);
+    return checkdate((int) $m, (int) $day, (int) $y) ? $d : null;
+}
+
 function sanitize_project(array $body): array {
     $required = ['project_name', 'pointed_sp', 'avg_velocity', 'initiative_start_number'];
     foreach ($required as $field) {
@@ -302,26 +319,26 @@ function sanitize_project(array $body): array {
     $use_year = !empty($body['use_year']) ? 1 : 0;
 
     return [
-        'project_name'            => substr(trim($body['project_name']), 0, 255),
-        'initiative_name'         => isset($body['initiative_name'])  ? substr(trim($body['initiative_name']), 0, 255)  : null,
-        'initiative_link'         => isset($body['initiative_link'])  ? substr(trim($body['initiative_link']), 0, 500)  : null,
-        'team_name'               => isset($body['team_name'])        ? substr(trim($body['team_name']), 0, 255)        : null,
-        'team_link'               => isset($body['team_link'])        ? substr(trim($body['team_link']), 0, 500)        : null,
-        'pointed_sp'              => (int)   $body['pointed_sp'],
-        'estimated_additional_sp' => isset($body['estimated_additional_sp']) ? (int) $body['estimated_additional_sp'] : null,
-        'buffer_pct'              => isset($body['buffer_pct'])       ? (float) $body['buffer_pct'] : 25.0,
-        'avg_velocity'            => (float) $body['avg_velocity'],
+        'project_name'            => substr(trim($body['project_name']), 0, 100),
+        'initiative_name'         => isset($body['initiative_name'])  ? substr(trim($body['initiative_name']), 0, 100) : null,
+        'initiative_link'         => sanitize_url($body['initiative_link'] ?? null),
+        'team_name'               => isset($body['team_name'])        ? substr(trim($body['team_name']), 0, 100)       : null,
+        'team_link'               => sanitize_url($body['team_link'] ?? null),
+        'pointed_sp'              => min(999, max(1,   (int)   $body['pointed_sp'])),
+        'estimated_additional_sp' => isset($body['estimated_additional_sp']) ? min(999, max(0, (int) $body['estimated_additional_sp'])) : null,
+        'buffer_pct'              => min(100.0, max(0.0, isset($body['buffer_pct']) ? (float) $body['buffer_pct'] : 25.0)),
+        'avg_velocity'            => min(999, max(1,   (float) $body['avg_velocity'])),
         'velocity_auto'           => !empty($body['velocity_auto'])   ? 1 : 0,
-        'current_weather_pct'     => isset($body['current_weather_pct']) ? (float) $body['current_weather_pct'] : 50.0,
+        'current_weather_pct'     => min(100.0, max(1.0, isset($body['current_weather_pct']) ? (float) $body['current_weather_pct'] : 50.0)),
         'weather_auto'            => !empty($body['weather_auto'])    ? 1 : 0,
         'sprint_prefix'           => isset($body['sprint_prefix'])    ? substr(trim($body['sprint_prefix']), 0, 100) : 'Sprint',
         'use_year'                => $use_year,
         'year_format'             => ($use_year && in_array($body['year_format'] ?? '', ['yy', 'yyyy'])) ? $body['year_format'] : null,
         'number_format'           => in_array($body['number_format'] ?? '', ['x', 'xx']) ? $body['number_format'] : 'xx',
-        'sprint_duration_weeks'   => isset($body['sprint_duration_weeks']) ? (int) $body['sprint_duration_weeks'] : null,
-        'cadence_start_date'      => isset($body['cadence_start_date']) && $body['cadence_start_date'] ? $body['cadence_start_date'] : null,
+        'sprint_duration_weeks'   => isset($body['sprint_duration_weeks']) ? min(8, max(1, (int) $body['sprint_duration_weeks'])) : null,
+        'cadence_start_date'      => sanitize_date($body['cadence_start_date'] ?? null),
         'initiative_start_year'   => ($use_year && isset($body['initiative_start_year'])) ? (int) $body['initiative_start_year'] : null,
-        'initiative_start_number' => (int) $body['initiative_start_number'],
+        'initiative_start_number' => max(1, (int) $body['initiative_start_number']),
     ];
 }
 

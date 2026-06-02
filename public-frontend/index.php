@@ -7,7 +7,7 @@ $IS_DEMO = is_demo();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAFT — Range And Forecasting Tool</title>
+    <title><?php echo $IS_DEMO ? 'RAFT - Demo' : 'RAFT - Range and Forecasting Tool'; ?></title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231e2535'/%3E%3Cpath d='M4 7 Q18 10 28 18' stroke='%23ef4444' stroke-width='1.4' fill='none' stroke-linecap='round' opacity='0.85'/%3E%3Cpath d='M4 15 Q16 15 28 18' stroke='%2360a5fa' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cpath d='M4 23 Q18 20 28 18' stroke='%234ade80' stroke-width='1.4' fill='none' stroke-linecap='round' opacity='0.85'/%3E%3Ccircle cx='28' cy='18' r='1.5' fill='%23e2e8f0' opacity='0.4'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -77,6 +77,15 @@ function previewSprintName(prefix, useYear, yearFmt, numFmt, startYear, startNum
     if (!useYear) return `${p} ${num}`;
     const y   = yearFmt === 'yy' ? String(startYear || new Date().getFullYear()).slice(2) : String(startYear || new Date().getFullYear());
     return `${p} ${y}.${num}`;
+}
+
+// ── Safe URL helper — strips anything that isn't http/https ───────────────────
+function safeUrl(url) {
+    if (!url) return null;
+    try {
+        const u = new URL(url);
+        return (u.protocol === 'http:' || u.protocol === 'https:') ? url : null;
+    } catch { return null; }
 }
 
 // ── Sprint end-date helper (mirrors mock-api / PHP logic) ─────────────────────
@@ -239,10 +248,20 @@ function ProjectModal({ project, onSave, onClose }) {
     const previewStartIdx = form.use_year ? sprintOptions.findIndex(o => o.year === new Date().getFullYear()) : 0;
     const previewLabels   = sprintOptions.slice(Math.max(0, previewStartIdx), Math.max(0, previewStartIdx) + 2).map(o => o.label);
 
+    useEffect(() => {
+        const onKey = e => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, []);
+
     return (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+        <div className="modal-overlay">
             <div className="modal">
-                <div className="modal-title">{editing ? 'Edit Project' : 'New Project'}</div>
+                <div className="modal-header">
+                    <div className="modal-title">{editing ? 'Edit Project' : 'New Project'}</div>
+                    <button className="modal-close" onClick={onClose}>×</button>
+                </div>
+                <div className="modal-body">
                 {error && <div className="error-msg" style={{marginBottom:16}}>{error}</div>}
 
                 <div className="form-group">
@@ -369,6 +388,7 @@ function ProjectModal({ project, onSave, onClose }) {
                         {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Project'}
                     </button>
                 </div>
+                </div>
             </div>
         </div>
     );
@@ -377,15 +397,25 @@ function ProjectModal({ project, onSave, onClose }) {
 // ── DeleteConfirmModal ────────────────────────────────────────────────────────
 function DeleteConfirmModal({ projectName, onConfirm, onClose }) {
     const [val, setVal] = useState('');
+    useEffect(() => {
+        const onKey = e => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, []);
     return (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+        <div className="modal-overlay">
             <div className="modal" style={{maxWidth:400}}>
-                <div className="modal-title">Delete Project</div>
+                <div className="modal-header">
+                    <div className="modal-title">Delete Project</div>
+                    <button className="modal-close" onClick={onClose}>×</button>
+                </div>
+                <div className="modal-body">
                 <p style={{color:'var(--text-dim)',marginBottom:16}}>This will permanently delete <strong>{projectName}</strong> and all its sprint data. Type <strong>DELETE</strong> to confirm.</p>
                 <input className="form-input" value={val} onChange={e => setVal(e.target.value)} placeholder="DELETE" />
                 <div className="modal-actions">
                     <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
                     <button className="btn btn-danger" onClick={onConfirm} disabled={val !== 'DELETE'}>Delete</button>
+                </div>
                 </div>
             </div>
         </div>
@@ -399,6 +429,12 @@ function CompleteSprintModal({ sprintName, sprintNumber, sprintYear, onSave, onC
     const [saving, setSaving]         = useState(false);
     const [error, setError]           = useState('');
 
+    useEffect(() => {
+        const onKey = e => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, []);
+
     async function handleSave() {
         if (!totalSP || !initDone) { setError('Both fields are required.'); return; }
         if (parseInt(initDone) > parseInt(totalSP)) { setError('Initiative work done cannot exceed total sprint points.'); return; }
@@ -411,9 +447,13 @@ function CompleteSprintModal({ sprintName, sprintNumber, sprintYear, onSave, onC
     }
 
     return (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+        <div className="modal-overlay">
             <div className="modal" style={{maxWidth:420}}>
-                <div className="modal-title">Complete {sprintName}</div>
+                <div className="modal-header">
+                    <div className="modal-title">Complete {sprintName}</div>
+                    <button className="modal-close" onClick={onClose}>×</button>
+                </div>
+                <div className="modal-body">
                 {error && <div className="error-msg" style={{marginBottom:16}}>{error}</div>}
                 <div className="form-group">
                     <label className="form-label">Total Sprint Points (team velocity this sprint)</label>
@@ -445,6 +485,7 @@ function CompleteSprintModal({ sprintName, sprintNumber, sprintYear, onSave, onC
                         {saving ? 'Saving…' : 'Complete Sprint'}
                     </button>
                 </div>
+                </div>
             </div>
         </div>
     );
@@ -466,7 +507,7 @@ function BurndownChart({ doneTable, forecastTable, totalPoints, creepPoints, the
         const tooltipBg   = isLight ? '#ffffff' : '#1c2030';
         const titleColor  = isLight ? '#0f172a' : '#e2e8f0';
         const bodyColor   = isLight ? '#334155' : '#94a3b8';
-        const font        = "'Courier New', Courier, monospace";
+        const font        = "ui-sans-serif, system-ui, sans-serif";
 
         const doneLabels     = doneTable.map(r => r.sprint_name);
         const forecastLabels = forecastTable.map(r => r.sprint_name);
@@ -796,7 +837,7 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
     const [loading, setLoading]         = useState(true);
     const [editModal, setEditModal]     = useState(false);
     const [completeModal, setCompleteModal] = useState(false);
-    const [creepPoints, setCreepPoints] = useState(0);
+    const [creepPoints, setCreepPoints] = useState('');
     const [initiativeVal, setInitiativeVal] = useState('');
     const [pointedSpVal, setPointedSpVal]   = useState('');
     const [bufferVal, setBufferVal]         = useState('');
@@ -835,12 +876,37 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
     if (!data) return null;
 
     const { project, total_points, done_table, forecast_table, current_sprint, points_remaining } = data;
-    const adjustedRemaining = points_remaining + creepPoints;
+    const creepNum          = parseInt(creepPoints) || 0;
+    const adjustedRemaining = points_remaining + creepNum;
+
+    // Recompute forecast from adjustedRemaining so cards update with scope creep
+    const adjustedForecast = (() => {
+        if (!forecast_table.length || creepNum === 0) return forecast_table;
+        const velocity       = project.avg_velocity;
+        const curPct         = project.current_weather_pct / 100;
+        const duration       = Math.max(1, project.sprint_duration_weeks || 2);
+        const sprintsPerYear = Math.floor(52 / duration);
+        let bR = adjustedRemaining, cR = adjustedRemaining, gR = adjustedRemaining;
+        let num = forecast_table[0].sprint_number;
+        let yr  = forecast_table[0].sprint_year;
+        const rows = [];
+        while ((bR > 0 || cR > 0 || gR > 0) && rows.length < 200) {
+            const bD = Math.min(bR, Math.round(velocity * 0.35));
+            const cD = Math.min(cR, Math.round(velocity * curPct));
+            const gD = Math.min(gR, Math.round(velocity * 0.75));
+            bR = Math.max(0, bR - bD); cR = Math.max(0, cR - cD); gR = Math.max(0, gR - gD);
+            const sprint_name = previewSprintName(project.sprint_prefix, project.use_year, project.year_format, project.number_format, yr, num);
+            rows.push({ sprint_name, sprint_number: num, sprint_year: yr, bad_remaining: bR, cur_remaining: cR, good_remaining: gR });
+            if (project.use_year && yr != null) { num++; if (num > sprintsPerYear) { num = 1; yr++; } }
+            else { num++; }
+        }
+        return rows;
+    })();
 
     // Scenario cards: find when each reaches 0
-    const badEnd  = forecast_table.find(r => r.bad_remaining === 0);
-    const curEnd  = forecast_table.find(r => r.cur_remaining === 0);
-    const goodEnd = forecast_table.find(r => r.good_remaining === 0);
+    const badEnd  = adjustedForecast.find(r => r.bad_remaining === 0);
+    const curEnd  = adjustedForecast.find(r => r.cur_remaining === 0);
+    const goodEnd = adjustedForecast.find(r => r.good_remaining === 0);
 
     const badEndDate  = badEnd  ? sprintEndDateFromProject(project, badEnd.sprint_number,  badEnd.sprint_year)  : null;
     const curEndDate  = curEnd  ? sprintEndDateFromProject(project, curEnd.sprint_number,  curEnd.sprint_year)  : null;
@@ -864,8 +930,8 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                     <div className="page-title">{project.project_name}</div>
                     {project.team_name && (
                         <div style={{color:'var(--text-muted)',fontSize:14,marginTop:4}}>
-                            {project.team_link
-                                ? <a href={project.team_link} target="_blank" rel="noopener" style={{color:'var(--accent)'}}>{project.team_name}</a>
+                            {safeUrl(project.team_link)
+                                ? <a href={safeUrl(project.team_link)} target="_blank" rel="noopener noreferrer" style={{color:'var(--accent)'}}>{project.team_name}</a>
                                 : project.team_name}
                         </div>
                     )}
@@ -876,8 +942,8 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                     <div className="summary-cell">
                         <div className="summary-cell-label">Initiative</div>
                         <div className="summary-cell-value" style={{fontSize:14}}>
-                            {project.initiative_link
-                                ? <a href={project.initiative_link} target="_blank" rel="noopener" style={{color:'var(--accent)'}}>{project.initiative_name || project.project_name}</a>
+                            {safeUrl(project.initiative_link)
+                                ? <a href={safeUrl(project.initiative_link)} target="_blank" rel="noopener noreferrer" style={{color:'var(--accent)'}}>{project.initiative_name || project.project_name}</a>
                                 : (project.initiative_name || project.project_name)}
                         </div>
                     </div>
@@ -906,19 +972,19 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                     <div className="scenario-card">
                         <div className="scenario-label bad">Bad Weather (35%)</div>
                         <div className="scenario-sprint">{badEnd ? badEnd.sprint_name : '—'}</div>
-                        <div className="scenario-detail">{badEnd ? `+${forecast_table.indexOf(badEnd)+1} sprints` : 'N/A'}</div>
+                        <div className="scenario-detail">{badEnd ? `+${adjustedForecast.indexOf(badEnd)+1} sprints` : 'N/A'}</div>
                         {badEndDate && <div className="scenario-date">{badEndDate}</div>}
                     </div>
                     <div className="scenario-card active">
                         <div className="scenario-label current">Current Weather ({Math.round(project.current_weather_pct)}%)</div>
                         <div className="scenario-sprint">{curEnd ? curEnd.sprint_name : '—'}</div>
-                        <div className="scenario-detail">{curEnd ? `+${forecast_table.indexOf(curEnd)+1} sprints` : 'N/A'}</div>
+                        <div className="scenario-detail">{curEnd ? `+${adjustedForecast.indexOf(curEnd)+1} sprints` : 'N/A'}</div>
                         {curEndDate && <div className="scenario-date">{curEndDate}</div>}
                     </div>
                     <div className="scenario-card">
                         <div className="scenario-label good">Good Weather (75%)</div>
                         <div className="scenario-sprint">{goodEnd ? goodEnd.sprint_name : '—'}</div>
-                        <div className="scenario-detail">{goodEnd ? `+${forecast_table.indexOf(goodEnd)+1} sprints` : 'N/A'}</div>
+                        <div className="scenario-detail">{goodEnd ? `+${adjustedForecast.indexOf(goodEnd)+1} sprints` : 'N/A'}</div>
                         {goodEndDate && <div className="scenario-date">{goodEndDate}</div>}
                     </div>
                 </div>
@@ -979,8 +1045,18 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
 
                         <div className="settings-row">
                             <div className="settings-label">Scope Creep +SP</div>
-                            <input className="settings-input" type="number" min="0" value={creepPoints}
-                                onChange={e => setCreepPoints(parseInt(e.target.value) || 0)} />
+                            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                                <input className="settings-input" type="number" min="0" max="999" style={{flex:1}}
+                                    value={creepPoints}
+                                    onChange={e => {
+                                        const v = e.target.value;
+                                        if (v === '') { setCreepPoints(''); return; }
+                                        setCreepPoints(String(Math.min(999, Math.max(0, parseInt(v) || 0))));
+                                    }} />
+                                {creepNum > 0 && (
+                                    <button className="btn btn-ghost btn-sm" style={{flexShrink:0,padding:'4px 8px'}} onClick={() => setCreepPoints('')}>×</button>
+                                )}
+                            </div>
                             <div className="creep-note">Not saved — for quick what-if checks</div>
                         </div>
 
@@ -1001,7 +1077,7 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                             doneTable={done_table}
                             forecastTable={forecast_table}
                             totalPoints={total_points}
-                            creepPoints={creepPoints}
+                            creepPoints={creepNum}
                             theme={theme}
                         />
 

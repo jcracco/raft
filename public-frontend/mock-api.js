@@ -9,7 +9,7 @@ const DEMO_DEFAULTS = {
         user_id: 0,
         project_name: 'Demo Project',
         initiative_name: 'Platform Modernization',
-        initiative_link: null,
+        initiative_link: 'https://example.com/platmodern/1',
         team_name: 'Team Calypso',
         team_link: null,
         pointed_sp: 160,
