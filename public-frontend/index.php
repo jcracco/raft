@@ -639,12 +639,10 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                 <h1 className="nav-logo"><div className="nav-eyebrow">Range And Forecasting Tool</div><div>RAFT</div></h1>
                 <div className="nav-right">
                     <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
-                    {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={() => setEditModal(true)}>Edit Project</button>}
                     {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onBack}>← Projects</button>}
                 </div>
             </nav>
             <div className="main">
-                {!IS_DEMO && <div className="back-link" onClick={onBack}>← All Projects</div>}
 
                 <div style={{marginBottom:8}}>
                     <div className="page-title">{project.project_name}</div>

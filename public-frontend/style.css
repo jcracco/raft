@@ -97,7 +97,7 @@ body {
     color: var(--eyebrow);
     margin-bottom: 2px;
 }
-h1, .nav-logo, .nav-eyebrow { font-family: 'Courier New', Courier, monospace; }
+h1, .nav-logo, .nav-eyebrow, .page-title { font-family: 'Courier New', Courier, monospace; }
 .nav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-username { color: var(--text-muted); font-size: 12px; letter-spacing: 1px; }
 
