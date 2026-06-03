@@ -680,13 +680,16 @@ function QuickPlanPage({ onBack, theme, onThemeToggle }) {
 
     return (
         <>
-            <nav className="nav">
-                <h1 className="nav-logo"><div className="nav-eyebrow">Range And Forecasting Tool</div><div>RAFT</div></h1>
-                <div className="nav-right">
+            <div className="top-bar">
+                <div className="top-bar-left">
+                    <div className="eyebrow">Range And Forecasting Tool</div>
+                    <h1>RAFT</h1>
+                </div>
+                <div className="top-bar-right">
                     <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
                     <button className="btn btn-ghost btn-sm" onClick={onBack}>← Back</button>
                 </div>
-            </nav>
+            </div>
             <div className="main">
                 <div className="page-header" style={{marginBottom:4}}>
                     <div className="page-title">Quick Plan</div>
@@ -773,13 +776,16 @@ function ProjectListPage({ onOpen, onQuickPlan, onLogout, theme, onThemeToggle }
 
     return (
         <>
-            <nav className="nav">
-                <h1 className="nav-logo"><div className="nav-eyebrow">Range And Forecasting Tool</div><div>RAFT</div></h1>
-                <div className="nav-right">
+            <div className="top-bar">
+                <div className="ntop-bar-left">
+                    <div className="eyebrow">Range And Forecasting Tool</div>
+                    <h1>RAFT</h1>
+                </div>
+                <div className="top-bar-right">
                     <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
                     {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onLogout}>Sign out</button>}
                 </div>
-            </nav>
+            </div>
             <div className="main">
                 <div className="page-header">
                     <div className="page-title">Projects</div>
@@ -917,13 +923,16 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
 
     return (
         <>
-            <nav className="nav">
-                <h1 className="nav-logo"><div className="nav-eyebrow">Range And Forecasting Tool</div><div>RAFT</div></h1>
-                <div className="nav-right">
+            <div className="top-bar">
+                <div className="top-bar-left">
+                    <div className="eyebrow">Range And Forecasting Tool</div>
+                    <h1>RAFT</h1>
+                </div>
+                <div className="top-bar-right">
                     <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
                     <button className="btn btn-ghost btn-sm" onClick={onBack}>← Projects</button>
                 </div>
-            </nav>
+            </div>
             <div className="main">
 
                 <div style={{marginBottom:8}}>

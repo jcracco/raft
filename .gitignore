@@ -1,15 +1,16 @@
 # RAFT — gitignored files
 
 # Config and bootstrap (contain credentials and server paths)
-private-backend/config.php
-public-frontend/bootstrap.php
+config.php
+bootstrap.php
 
 # Local only
 other/
-private-backend/config.local.php
+config.local.php
+.local
 
 # Session tokens (runtime file, contains active login tokens)
-private-backend/session_tokens.json
+session_tokens.json
 
 # OS / Editor
 .DS_Store

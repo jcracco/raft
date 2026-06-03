@@ -7,20 +7,20 @@
     --bg-page:       linear-gradient(160deg, #080d1a 0%, #0b1120 50%, #080d1a 100%);
     --bg2:           #141720;
     --bg3:           #1c2030;
-    --border:        rgba(255,255,255,0.07);
+    --border:        rgba(255,255,255,0.13);
     --text:          #f1f5f9;
-    --text-muted:    #475569;
-    --text-dim:      #94a3b8;
+    --text-muted:    #7a8fa8;
+    --text-dim:      #a8b8cc;
     --accent:        #3b82f6;
     --accent-dim:    #1d4ed8;
-    --eyebrow:       #3b82f6;
-    --toggle-bg:     rgba(255,255,255,0.06);
-    --toggle-border: rgba(255,255,255,0.12);
-    --toggle-color:  #94a3b8;
+    --eyebrow:       #60a5fa;
+    --toggle-bg:     rgba(255,255,255,0.09);
+    --toggle-border: rgba(255,255,255,0.22);
+    --toggle-color:  #a8b8cc;
     --bad:           #ef4444;
     --current:       #3b82f6;
     --good:          #22c55e;
-    --done:          #475569;
+    --done:          #7a8fa8;
     --radius:        8px;
     --radius-lg:     12px;
 }
@@ -79,8 +79,8 @@ body {
     white-space: nowrap;
 }
 
-/* ── Top nav ── */
-.nav {
+/* ── Top bar ── */
+.top-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -89,7 +89,7 @@ body {
     padding: 36px 28px 20px;
     background: transparent;
 }
-.nav-logo {
+.top-bar-left {
     font-size: 26px;
     font-weight: 700;
     color: var(--text);
@@ -99,8 +99,8 @@ body {
     flex-direction: column;
     gap: 2px;
 }
-.nav-logo span { color: var(--text-muted); font-weight: 400; }
-.nav-eyebrow {
+.top-bar-left span { color: var(--text-muted); font-weight: 400; }
+.eyebrow {
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 5px;
@@ -108,8 +108,8 @@ body {
     color: var(--eyebrow);
     margin-bottom: 2px;
 }
-h1, .nav-logo, .nav-eyebrow, .page-title, .login-logo, .login-sub { font-family: 'Courier New', Courier, monospace; }
-.nav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+h1, .top-bar-left, .eyebrow, .page-title, .login-logo, .login-sub { font-family: 'Courier New', Courier, monospace; }
+.top-bar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-username { color: var(--text-muted); font-size: 12px; letter-spacing: 1px; }
 
 /* ── Buttons ── */
