@@ -108,6 +108,13 @@ body {
     color: var(--eyebrow);
     margin-bottom: 2px;
 }
+h1{
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.05em;
+}
+
 h1, .top-bar-left, .eyebrow, .page-title, .login-logo, .login-sub { font-family: 'Courier New', Courier, monospace; }
 .top-bar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-username { color: var(--text-muted); font-size: 12px; letter-spacing: 1px; }

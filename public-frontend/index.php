@@ -717,17 +717,17 @@ function QuickPlanPage({ onBack, theme, onThemeToggle }) {
                     <div>
                         <div className="scenario-grid">
                             <div className="scenario-card">
-                                <div className="scenario-label bad">Bad (35%)</div>
+                                <div className="scenario-label bad">Bad Weather (Focus: 35% )</div>
                                 <div className="scenario-sprint">{countSprints('bad_remaining')}</div>
                                 <div className="scenario-detail">sprints</div>
                             </div>
                             <div className="scenario-card active">
-                                <div className="scenario-label current">Current ({weather}%)</div>
+                                <div className="scenario-label current">Current Weather (Focus: {weather}%)</div>
                                 <div className="scenario-sprint">{countSprints('cur_remaining')}</div>
                                 <div className="scenario-detail">sprints</div>
                             </div>
                             <div className="scenario-card">
-                                <div className="scenario-label good">Good (75%)</div>
+                                <div className="scenario-label good">Good Weather (Focus: 75%)</div>
                                 <div className="scenario-sprint">{countSprints('good_remaining')}</div>
                                 <div className="scenario-detail">sprints</div>
                             </div>
@@ -979,19 +979,19 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                 {/* Scenario cards */}
                 <div className="scenario-grid">
                     <div className="scenario-card">
-                        <div className="scenario-label bad">Bad Weather (35%)</div>
+                        <div className="scenario-label bad">Bad Weather (Focus: 35%)</div>
                         <div className="scenario-sprint">{badEnd ? badEnd.sprint_name : '—'}</div>
                         <div className="scenario-detail">{badEnd ? `+${adjustedForecast.indexOf(badEnd)+1} sprints` : 'N/A'}</div>
                         {badEndDate && <div className="scenario-date">{badEndDate}</div>}
                     </div>
                     <div className="scenario-card active">
-                        <div className="scenario-label current">Current Weather ({Math.round(project.current_weather_pct)}%)</div>
+                        <div className="scenario-label current">Current Weather (Focus: {Math.round(project.current_weather_pct)}%)</div>
                         <div className="scenario-sprint">{curEnd ? curEnd.sprint_name : '—'}</div>
                         <div className="scenario-detail">{curEnd ? `+${adjustedForecast.indexOf(curEnd)+1} sprints` : 'N/A'}</div>
                         {curEndDate && <div className="scenario-date">{curEndDate}</div>}
                     </div>
                     <div className="scenario-card">
-                        <div className="scenario-label good">Good Weather (75%)</div>
+                        <div className="scenario-label good">Good Weather (Focus: 75%)</div>
                         <div className="scenario-sprint">{goodEnd ? goodEnd.sprint_name : '—'}</div>
                         <div className="scenario-detail">{goodEnd ? `+${adjustedForecast.indexOf(goodEnd)+1} sprints` : 'N/A'}</div>
                         {goodEndDate && <div className="scenario-date">{goodEndDate}</div>}
