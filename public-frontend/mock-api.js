@@ -6,6 +6,7 @@
 const DEMO_DEFAULTS = {
     project: {
         id: 1,
+        url_token: 'a1b2c3',
         user_id: 0,
         project_name: 'Demo Project',
         initiative_name: 'Platform Modernization',
@@ -237,6 +238,11 @@ window._mockApi = async function(action, params = {}) {
 
     if (action === 'get_project') {
         return buildProjectResponse(state);
+    }
+
+    if (action === 'get_project_public') {
+        const data = buildProjectResponse(state);
+        return { ...data, is_owner: true };
     }
 
     if (action === 'complete_sprint') {

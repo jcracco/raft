@@ -105,46 +105,22 @@ if ($action === 'get_projects') {
 
 if ($action === 'get_project') {
     require_login();
-    $id = (int) ($_GET['id'] ?? 0);
-    $p  = get_project_for_user($id);
-
-    $entries = get_entries($id);
-
-    if ($p['velocity_auto'] && !empty($entries)) {
-        $p['avg_velocity'] = calc_avg_velocity($entries);
+    $token = $_GET['token'] ?? '';
+    $p     = get_project_by_token($token);
+    if (!$p || (int) $p['user_id'] !== current_user_id()) {
+        respond_error('Project not found', 404);
     }
-    if ($p['weather_auto'] && !empty($entries)) {
-        $p['current_weather_pct'] = calc_avg_weather($entries);
-    }
+    respond(build_project_response($p));
+}
 
-    $total                   = total_points($p);
-    $done_table              = build_done_table($entries, $total);
-    $last_remaining          = empty($done_table) ? $total : end($done_table)['points_remaining'];
-    [$cur_number, $cur_year] = current_sprint($p, $entries);
-
-    // Attach sprint names and dates to done table rows
-    foreach ($done_table as &$row) {
-        $row['sprint_name'] = sprint_name($p, $row['sprint_number'], $row['sprint_year']);
-        $start              = sprint_start_date($p, $row['sprint_number'], $row['sprint_year']);
-        $row['start_date']  = $start;
-        $row['end_date']    = ($start && $p['sprint_duration_weeks'])
-            ? sprint_end_date($start, (int) $p['sprint_duration_weeks'])
-            : null;
-    }
-
-    [$next_number, $next_year] = current_sprint($p, $entries);
-    $forecast_table = build_forecast_table($p, $last_remaining, $next_number, $next_year);
-
-    respond([
-        'project'        => $p,
-        'total_points'   => $total,
-        'done_table'     => $done_table,
-        'forecast_table' => $forecast_table,
-        'current_sprint' => sprint_name($p, $cur_number, $cur_year),
-        'points_remaining' => $last_remaining,
-        'calc_velocity'  => $p['velocity_auto'] ? calc_avg_velocity($entries) : null,
-        'calc_weather'   => $p['weather_auto']  ? calc_avg_weather($entries)  : null,
-    ]);
+if ($action === 'get_project_public') {
+    $token    = $_GET['token'] ?? '';
+    $p        = get_project_by_token($token);
+    if (!$p) respond_error('Project not found', 404);
+    $is_owner = is_logged_in() && ((int) $p['user_id'] === current_user_id());
+    $data     = build_project_response($p);
+    $data['is_owner'] = $is_owner;
+    respond($data);
 }
 
 if ($action === 'create_project' && $method === 'POST') {
@@ -156,25 +132,26 @@ if ($action === 'create_project' && $method === 'POST') {
     if (isset($p['error'])) respond_error($p['error']);
 
     $db = get_db();
+    $url_token = generate_unique_token();
     $db->prepare('
         INSERT INTO projects (
-            user_id, project_name, initiative_name, initiative_link,
+            user_id, url_token, project_name, initiative_name, initiative_link,
             team_name, team_link, pointed_sp, estimated_additional_sp, buffer_pct,
             avg_velocity, velocity_auto, current_weather_pct, weather_auto,
             sprint_prefix, use_year, year_format, number_format,
             sprint_duration_weeks, cadence_start_date,
             initiative_start_year, initiative_start_number
         ) VALUES (
-            :user_id, :project_name, :initiative_name, :initiative_link,
+            :user_id, :url_token, :project_name, :initiative_name, :initiative_link,
             :team_name, :team_link, :pointed_sp, :estimated_additional_sp, :buffer_pct,
             :avg_velocity, :velocity_auto, :current_weather_pct, :weather_auto,
             :sprint_prefix, :use_year, :year_format, :number_format,
             :sprint_duration_weeks, :cadence_start_date,
             :initiative_start_year, :initiative_start_number
         )
-    ')->execute(array_merge(['user_id' => current_user_id()], $p));
+    ')->execute(array_merge(['user_id' => current_user_id(), 'url_token' => $url_token], $p));
 
-    respond(['ok' => true, 'id' => (int) $db->lastInsertId()]);
+    respond(['ok' => true, 'id' => (int) $db->lastInsertId(), 'url_token' => $url_token]);
 }
 
 if ($action === 'update_project' && $method === 'POST') {
@@ -254,6 +231,64 @@ if ($action === 'complete_sprint' && $method === 'POST') {
 // ---------------------------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------------------------
+
+function generate_unique_token(): string {
+    $db = get_db();
+    do {
+        $token = bin2hex(random_bytes(3));
+        $chk   = $db->prepare('SELECT 1 FROM projects WHERE url_token = ?');
+        $chk->execute([$token]);
+    } while ($chk->fetch());
+    return $token;
+}
+
+function get_project_by_token(string $token): ?array {
+    if (!$token) return null;
+    $db   = get_db();
+    $stmt = $db->prepare('SELECT * FROM projects WHERE url_token = ?');
+    $stmt->execute([$token]);
+    return $stmt->fetch() ?: null;
+}
+
+function build_project_response(array $p): array {
+    $entries = get_entries($p['id']);
+
+    if ($p['velocity_auto'] && !empty($entries)) {
+        $p['avg_velocity'] = calc_avg_velocity($entries);
+    }
+    if ($p['weather_auto'] && !empty($entries)) {
+        $p['current_weather_pct'] = calc_avg_weather($entries);
+    }
+
+    $total                   = total_points($p);
+    $done_table              = build_done_table($entries, $total);
+    $last_remaining          = empty($done_table) ? $total : end($done_table)['points_remaining'];
+    [$cur_number, $cur_year] = current_sprint($p, $entries);
+
+    foreach ($done_table as &$row) {
+        $row['sprint_name'] = sprint_name($p, $row['sprint_number'], $row['sprint_year']);
+        $start              = sprint_start_date($p, $row['sprint_number'], $row['sprint_year']);
+        $row['start_date']  = $start;
+        $row['end_date']    = ($start && $p['sprint_duration_weeks'])
+            ? sprint_end_date($start, (int) $p['sprint_duration_weeks'])
+            : null;
+    }
+    unset($row);
+
+    [$next_number, $next_year] = current_sprint($p, $entries);
+    $forecast_table = build_forecast_table($p, $last_remaining, $next_number, $next_year);
+
+    return [
+        'project'          => $p,
+        'total_points'     => $total,
+        'done_table'       => $done_table,
+        'forecast_table'   => $forecast_table,
+        'current_sprint'   => sprint_name($p, $cur_number, $cur_year),
+        'points_remaining' => $last_remaining,
+        'calc_velocity'    => $p['velocity_auto'] ? calc_avg_velocity($entries) : null,
+        'calc_weather'     => $p['weather_auto']  ? calc_avg_weather($entries)  : null,
+    ];
+}
 
 function get_project_for_user(int $id): array {
     if (!$id) respond_error('Invalid project ID', 400);

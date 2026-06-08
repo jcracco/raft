@@ -48,7 +48,39 @@ $IS_DEMO = is_demo();
 
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
+// ── Lucide-style inline SVG icons ────────────────────────────────────────────
+function LucideIcon({ size = 24, children }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" strokeWidth="2"
+             strokeLinecap="round" strokeLinejoin="round"
+             style={{display:'inline-block',verticalAlign:'middle'}}>
+            {children}
+        </svg>
+    );
+}
+const ArrowLeft = ({ size = 24 }) => <LucideIcon size={size}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></LucideIcon>;
+const Share2   = ({ size = 24 }) => <LucideIcon size={size}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></LucideIcon>;
+const LogOut   = ({ size = 24 }) => <LucideIcon size={size}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></LucideIcon>;
+const Settings = ({ size = 24 }) => <LucideIcon size={size}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></LucideIcon>;
+const Sun      = ({ size = 24 }) => <LucideIcon size={size}><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></LucideIcon>;
+const Moon     = ({ size = 24 }) => <LucideIcon size={size}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></LucideIcon>;
+const Check    = ({ size = 24 }) => <LucideIcon size={size}><polyline points="20 6 9 17 4 12"/></LucideIcon>;
 const IS_DEMO = <?= $IS_DEMO ? 'true' : 'false' ?>;
+
+// Clipboard helper — falls back to execCommand for non-HTTPS contexts
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    }
+    const el = Object.assign(document.createElement('textarea'), { value: text });
+    Object.assign(el.style, { position: 'fixed', opacity: '0' });
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    return Promise.resolve();
+}
 
 // ── API helper ──────────────────────────────────────────────────────────────
 async function api(action, params = {}, method = 'GET') {
@@ -110,8 +142,23 @@ function Tip({ text }) {
     return <span className="tip" data-tooltip={text}>ⓘ</span>;
 }
 
+// ── ThemeToggle (fixed bottom-right, always visible) ─────────────────────────
+function ThemeToggle({ theme, onToggle }) {
+    const Icon = theme === 'dark' ? Sun : Moon;
+    return (
+        <button onClick={onToggle} title="Toggle theme"
+            style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 500,
+                background: 'var(--bg2)', border: '1px solid var(--border)',
+                borderRadius: '50%', width: 36, height: 36, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--text-muted)', transition: 'all 0.15s' }}>
+            <Icon size={16} />
+        </button>
+    );
+}
+
 // ── LoginPage ───────────────────────────────────────────────────────────────
-function LoginPage({ onLogin, theme, onThemeToggle }) {
+function LoginPage({ onLogin }) {
     const [username, setUsername] = useState(IS_DEMO ? 'demo' : '');
     const [password, setPassword] = useState(IS_DEMO ? 'demo' : '');
     const [error, setError]       = useState('');
@@ -132,9 +179,6 @@ function LoginPage({ onLogin, theme, onThemeToggle }) {
 
     return (
         <div className="login-wrap">
-            <div style={{position:'fixed',top:16,right:20}}>
-                <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
-            </div>
             <div className="login-box">
                 <div className="login-logo">RAFT</div>
                 <div className="login-sub">Range And Forecasting Tool</div>
@@ -649,7 +693,7 @@ function BurndownChart({ doneTable, forecastTable, totalPoints, creepPoints, the
 }
 
 // ── QuickPlanPage ─────────────────────────────────────────────────────────────
-function QuickPlanPage({ onBack, theme, onThemeToggle }) {
+function QuickPlanPage({ onBack, onLogout, theme }) {
     const [sp,       setSp]      = useState(200);
     const [velocity, setVel]     = useState(40);
     const [weather,  setWeather] = useState(55);
@@ -691,8 +735,8 @@ function QuickPlanPage({ onBack, theme, onThemeToggle }) {
                     <h1>RAFT</h1>
                 </div>
                 <div className="top-bar-right">
-                    <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
-                    <button className="btn btn-ghost btn-sm" onClick={onBack}>← Back</button>
+                    <button className="btn btn-ghost btn-sm" onClick={onBack} style={{display:'inline-flex',alignItems:'center',gap:4}}><ArrowLeft size={15} />Back</button>
+                    {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onLogout} title="Sign out"><LogOut size={15} /></button>}
                 </div>
             </div>
             <div className="main">
@@ -752,7 +796,7 @@ function QuickPlanPage({ onBack, theme, onThemeToggle }) {
 }
 
 // ── ProjectListPage ────────────────────────────────────────────────────────────
-function ProjectListPage({ onOpen, onQuickPlan, onLogout, theme, onThemeToggle }) {
+function ProjectListPage({ onOpen, onQuickPlan, onLogout }) {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading]   = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -787,8 +831,7 @@ function ProjectListPage({ onOpen, onQuickPlan, onLogout, theme, onThemeToggle }
                     <h1>RAFT</h1>
                 </div>
                 <div className="top-bar-right">
-                    <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
-                    {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onLogout}>Sign out</button>}
+                    {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onLogout} title="Sign out"><LogOut size={15} /></button>}
                 </div>
             </div>
             <div className="main">
@@ -807,7 +850,7 @@ function ProjectListPage({ onOpen, onQuickPlan, onLogout, theme, onThemeToggle }
                                 <div style={{marginTop:12,fontSize:12,color:'var(--accent)'}}>No setup required →</div>
                             </div>
                             {projects.map(p => (
-                                <div className="project-card" key={p.id} onClick={() => onOpen(p.id)}>
+                                <div className="project-card" key={p.id} onClick={() => onOpen(p.url_token)}>
                                     <div className="project-card-name">{p.project_name}</div>
                                     <div className="project-card-meta">{p.team_name || 'No team'} · {p.current_sprint_name}</div>
                                     <div className="project-card-stats">
@@ -843,8 +886,51 @@ function ProjectListPage({ onOpen, onQuickPlan, onLogout, theme, onThemeToggle }
 }
 
 // ── ProjectViewPage ───────────────────────────────────────────────────────────
-function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
+// ── ShareModal ────────────────────────────────────────────────────────────────
+function ShareModal({ url, onClose }) {
+    const [copied, setCopied] = useState(false);
+    function copy() {
+        copyToClipboard(url).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    }
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth:480}}>
+                <div className="modal-header">
+                    <div className="modal-title">Share project</div>
+                    <button className="modal-close" onClick={onClose}>×</button>
+                </div>
+                <div className="modal-body">
+                    <p style={{fontSize:13,color:'var(--text-muted)',marginTop:0,marginBottom:12}}>
+                        Anyone with this link can view this project in read-only mode.
+                    </p>
+                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                        <input
+                            className="form-input"
+                            readOnly
+                            value={url}
+                            onClick={e => e.target.select()}
+                            style={{flex:1,fontSize:12,fontFamily:'monospace'}}
+                        />
+                        <button className="btn btn-primary btn-sm" onClick={copy} style={{whiteSpace:'nowrap',flexShrink:0}}>
+                            {copied ? '✓ Copied' : 'Copy'}
+                        </button>
+                    </div>
+                </div>
+                <div className="modal-footer">
+                    <button className="btn btn-ghost" onClick={onClose}>Done</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, theme }) {
     const [data, setData]               = useState(null);
+    const [isOwner, setIsOwner]         = useState(false);
+    const [shareModal, setShareModal]   = useState(false);
     const [loading, setLoading]         = useState(true);
     const [editModal, setEditModal]     = useState(false);
     const [completeModal, setCompleteModal] = useState(false);
@@ -855,13 +941,14 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
     const [velocityVal, setVelocityVal]     = useState('');
     const [weatherVal, setWeatherVal]       = useState('');
 
-    useEffect(() => { loadProject(); }, [projectId]);
+    useEffect(() => { loadProject(); }, [urlToken]);
 
     async function loadProject(silent = false) {
         if (!silent) setLoading(true);
         try {
-            const d = await api('get_project', { id: projectId });
+            const d = await api('get_project_public', { token: urlToken });
             setData(d);
+            setIsOwner(!!d.is_owner);
             setInitiativeVal(d.project.initiative_name || '');
             setPointedSpVal(d.project.pointed_sp);
             setBufferVal(d.project.buffer_pct);
@@ -873,13 +960,13 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
     }
 
     async function handleCompleteSprint(vals) {
-        await api('complete_sprint', { project_id: projectId, ...vals }, 'POST');
+        await api('complete_sprint', { project_id: data.project.id, ...vals }, 'POST');
         setCompleteModal(false);
         loadProject();
     }
 
     async function updateSetting(field, value) {
-        await api('update_project', { id: projectId, ...data.project, [field]: value }, 'POST');
+        await api('update_project', { id: data.project.id, ...data.project, [field]: value }, 'POST');
         loadProject(true);
     }
 
@@ -934,10 +1021,29 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                     <h1>RAFT</h1>
                 </div>
                 <div className="top-bar-right">
-                    <button className="theme-toggle" onClick={onThemeToggle}>{theme === 'dark' ? '☀ Light' : '◑ Dark'}</button>
-                    <button className="btn btn-ghost btn-sm" onClick={onBack}>← Projects</button>
+                    {isLoggedIn
+                        ? <>
+                            <button className="btn btn-ghost btn-sm" onClick={onBack} style={{display:'inline-flex',alignItems:'center',gap:4}}><ArrowLeft size={15} />Projects</button>
+                            {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={() => setShareModal(true)} title="Share project"><Share2 size={15} /></button>}
+                            {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onLogout} title="Sign out"><LogOut size={15} /></button>}
+                          </>
+                        : <>
+                            {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={() => setShareModal(true)} title="Share project"><Share2 size={15} /></button>}
+                            <button className="btn btn-ghost btn-sm" onClick={onSignIn}>Sign in</button>
+                          </>
+                    }
                 </div>
             </div>
+            {!isOwner && (
+                <div style={{maxWidth:1200,margin:'0 auto',padding:'4px 28px 8px'}}>
+                    <div style={{fontSize:12,color:'var(--text-muted)',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius)',padding:'7px 14px'}}>
+                        {isLoggedIn
+                            ? 'You\'re viewing a shared project.'
+                            : <span>You're viewing a shared project — <button className="btn btn-ghost btn-sm" style={{padding:'0 4px',fontSize:12,border:'none',color:'var(--accent)',display:'inline'}} onClick={onSignIn}>sign in to edit</button>.</span>
+                        }
+                    </div>
+                </div>
+            )}
             <div className="main">
 
                 <div style={{marginBottom:8}}>
@@ -1003,12 +1109,12 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                     </div>
                 </div>
 
-                <div className="project-layout">
-                    {/* Settings card */}
-                    <div className="card">
+                <div className="project-layout" style={!isOwner ? {gridTemplateColumns:'1fr'} : undefined}>
+                    {/* Settings card — owner only */}
+                    {isOwner && <div className="card">
                         <div className="card-title" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                             Settings
-                            <button className="btn btn-ghost btn-sm" style={{padding:'2px 6px',fontSize:15,lineHeight:1,border:'none'}} onClick={() => setEditModal(true)} title="Edit all settings">⚙</button>
+                            <button className="btn btn-ghost btn-sm" style={{padding:'4px',lineHeight:0,border:'none'}} onClick={() => setEditModal(true)} title="Edit all settings"><Settings size={15} /></button>
                         </div>
 
                         <div className="settings-row">
@@ -1082,7 +1188,7 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                                 Complete {current_sprint}
                             </button>
                         )}
-                    </div>
+                    </div>}
 
                     {/* Right column */}
                     <div>
@@ -1172,10 +1278,13 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                 </div>
             </div>
 
-            {editModal && (
+            {shareModal && (
+                <ShareModal url={window.location.href} onClose={() => setShareModal(false)} />
+            )}
+            {isOwner && editModal && (
                 <ProjectModal project={project} onSave={() => { setEditModal(false); loadProject(); }} onClose={() => setEditModal(false)} />
             )}
-            {completeModal && firstForecast && (
+            {isOwner && completeModal && firstForecast && (
                 <CompleteSprintModal
                     sprintName={current_sprint}
                     sprintNumber={firstForecast.sprint_number}
@@ -1193,21 +1302,22 @@ function parseHash() {
     const hash = window.location.hash;
     if (!hash || hash === '#' || hash === '#/') return { view: 'list' };
     if (hash === '#/quickplan') return { view: 'quickplan' };
-    const m = hash.match(/^#\/project\/(\d+)$/);
-    if (m) return { view: 'project', projectId: parseInt(m[1], 10) };
+    const m = hash.match(/^#\/project\/([0-9a-f]{6})$/i);
+    if (m) return { view: 'project', urlToken: m[1].toLowerCase() };
     return { view: 'list' };
 }
 
 function navigate(route) {
-    if (route.view === 'list')      window.location.hash = '#/';
+    if (route.view === 'list')           window.location.hash = '#/';
     else if (route.view === 'quickplan') window.location.hash = '#/quickplan';
-    else if (route.view === 'project')   window.location.hash = `#/project/${route.projectId}`;
+    else if (route.view === 'project')   window.location.hash = `#/project/${route.urlToken}`;
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
 function App() {
     const [authState, setAuthState] = useState('loading'); // loading | loggedIn | loggedOut
     const [route, setRoute]         = useState(parseHash);
+    const [forceLogin, setForceLogin] = useState(false);
     const [theme, setTheme]         = useState(() => localStorage.getItem('raft_theme') || 'dark');
 
     useEffect(() => {
@@ -1228,9 +1338,9 @@ function App() {
         return () => window.removeEventListener('hashchange', onHashChange);
     }, []);
 
-    function go(route) {
-        navigate(route);
-        setRoute(route);
+    function go(r) {
+        navigate(r);
+        setRoute(r);
     }
 
     async function handleLogout() {
@@ -1240,37 +1350,43 @@ function App() {
     }
 
     const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+    const themeToggle = <ThemeToggle theme={theme} onToggle={toggleTheme} />;
 
-    if (authState === 'loading') return <div className="loading"><div className="spinner" /></div>;
+    if (authState === 'loading') return <>{themeToggle}<div className="loading"><div className="spinner" /></div></>;
 
+    let content;
     if (authState === 'loggedOut') {
-        return <LoginPage
-            onLogin={() => setAuthState('loggedIn')}
-            theme={theme}
-            onThemeToggle={toggleTheme}
-        />;
-    }
-
-    if (route.view === 'quickplan') {
-        return <QuickPlanPage onBack={() => go({ view: 'list' })} theme={theme} onThemeToggle={toggleTheme} />;
-    }
-
-    if (route.view === 'project' && route.projectId) {
-        return <ProjectViewPage
-            projectId={route.projectId}
+        if (!forceLogin && route.view === 'project' && route.urlToken) {
+            content = <ProjectViewPage
+                urlToken={route.urlToken}
+                isLoggedIn={false}
+                onBack={null}
+                onSignIn={() => setForceLogin(true)}
+                theme={theme}
+            />;
+        } else {
+            content = <LoginPage onLogin={() => { setAuthState('loggedIn'); setForceLogin(false); }} />;
+        }
+    } else if (route.view === 'quickplan') {
+        content = <QuickPlanPage onBack={() => go({ view: 'list' })} onLogout={handleLogout} theme={theme} />;
+    } else if (route.view === 'project' && route.urlToken) {
+        content = <ProjectViewPage
+            urlToken={route.urlToken}
+            isLoggedIn={true}
             onBack={() => go({ view: 'list' })}
+            onSignIn={null}
+            onLogout={handleLogout}
             theme={theme}
-            onThemeToggle={toggleTheme}
+        />;
+    } else {
+        content = <ProjectListPage
+            onOpen={token => go({ view: 'project', urlToken: token })}
+            onQuickPlan={() => go({ view: 'quickplan' })}
+            onLogout={handleLogout}
         />;
     }
 
-    return <ProjectListPage
-        onOpen={id => go({ view: 'project', projectId: id })}
-        onQuickPlan={() => go({ view: 'quickplan' })}
-        onLogout={handleLogout}
-        theme={theme}
-        onThemeToggle={toggleTheme}
-    />;
+    return <>{content}{themeToggle}</>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);

@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `projects` (
   `id`                      INT UNSIGNED      NOT NULL AUTO_INCREMENT,
+  `url_token`               VARCHAR(6) NOT NULL,
   `user_id`                 INT UNSIGNED      NOT NULL,
 
   -- Core
@@ -63,6 +64,7 @@ CREATE TABLE IF NOT EXISTS `projects` (
   `updated_at`              DATETIME          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_url_token` (`url_token`),
   CONSTRAINT `fk_projects_user`
     FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
