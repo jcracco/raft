@@ -105,6 +105,11 @@ function sprintEndDateFromProject(project, sprint_number, sprint_year) {
     return d.toISOString().split('T')[0];
 }
 
+// ── Tooltip icon ─────────────────────────────────────────────────────────────
+function Tip({ text }) {
+    return <span className="tip" data-tooltip={text}>ⓘ</span>;
+}
+
 // ── LoginPage ───────────────────────────────────────────────────────────────
 function LoginPage({ onLogin, theme, onThemeToggle }) {
     const [username, setUsername] = useState(IS_DEMO ? 'demo' : '');
@@ -264,7 +269,7 @@ function ProjectModal({ project, onSave, onClose }) {
                 <div className="modal-body">
                 {error && <div className="error-msg" style={{marginBottom:16}}>{error}</div>}
 
-                <div className="form-group">
+                <div className="form-group" style={{marginTop:0}}>
                     <label className="form-label">Project Name <span className="required">*</span></label>
                     <input className="form-input" maxLength={100} value={form.project_name} onChange={e => set('project_name', e.target.value)} placeholder="e.g. Platform Modernization" />
                 </div>
@@ -382,12 +387,12 @@ function ProjectModal({ project, onSave, onClose }) {
                     </div>
                 )}
 
-                <div className="modal-actions">
+                </div>
+                <div className="modal-footer">
                     <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
                     <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
                         {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Project'}
                     </button>
-                </div>
                 </div>
             </div>
         </div>
@@ -957,21 +962,21 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                         </div>
                     </div>
                     <div className="summary-cell">
-                        <div className="summary-cell-label">Pointed SP</div>
+                        <div className="summary-cell-label">Pointed SP <Tip text="Total story points from already estimated stories" /></div>
                         <div className="summary-cell-value">{project.pointed_sp}</div>
                     </div>
                     {project.estimated_additional_sp > 0 && (
                         <div className="summary-cell">
-                            <div className="summary-cell-label">Est. Additional</div>
+                            <div className="summary-cell-label">Est. Additional <Tip text="Estimated points for stories not yet sized — known work, not yet pointed" /></div>
                             <div className="summary-cell-value">{project.estimated_additional_sp}</div>
                         </div>
                     )}
                     <div className="summary-cell">
-                        <div className="summary-cell-label">Buffer %</div>
+                        <div className="summary-cell-label">Buffer % <Tip text="Safety margin applied to total points to account for unplanned discoveries during development" /></div>
                         <div className="summary-cell-value">{Math.round(project.buffer_pct)}%</div>
                     </div>
                     <div className="summary-cell">
-                        <div className="summary-cell-label">Total Points</div>
+                        <div className="summary-cell-label">Total Points <Tip text="Final initiative scope: (Pointed + Additional) × (1 + Buffer %)" /></div>
                         <div className="summary-cell-value">{Math.round(total_points)}</div>
                     </div>
                 </div>
@@ -1001,10 +1006,13 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                 <div className="project-layout">
                     {/* Settings card */}
                     <div className="card">
-                        <div className="card-title">Settings</div>
+                        <div className="card-title" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                            Settings
+                            <button className="btn btn-ghost btn-sm" style={{padding:'2px 6px',fontSize:15,lineHeight:1,border:'none'}} onClick={() => setEditModal(true)} title="Edit all settings">⚙</button>
+                        </div>
 
                         <div className="settings-row">
-                            <div className="settings-label">Current Sprint</div>
+                            <div className="settings-label">Current Sprint <Tip text="Next sprint to be completed — advances automatically when you complete a sprint" /></div>
                             <div className="settings-value readonly">{current_sprint}</div>
                         </div>
                         <div className="settings-row">
@@ -1014,7 +1022,7 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
 
                         <div className="settings-row">
                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:4}}>
-                                <div className="settings-label" style={{marginBottom:0}}>Avg Velocity</div>
+                                <div className="settings-label" style={{marginBottom:0}}>Avg Velocity <Tip text="Team's average story points completed per sprint" /></div>
                                 <span style={{fontFamily:"'Courier New',Courier,monospace",fontSize:13,fontWeight:600,color:'var(--accent)'}}>{Math.round(velocityVal)} pts</span>
                             </div>
                             <input type="range" min="1" max="150"
@@ -1034,7 +1042,7 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
 
                         <div className="settings-row">
                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:4}}>
-                                <div className="settings-label" style={{marginBottom:0}}>Current Weather %</div>
+                                <div className="settings-label" style={{marginBottom:0}}>Current Weather % <Tip text="Average share of sprint work going toward this initiative" /></div>
                                 <span style={{fontFamily:"'Courier New',Courier,monospace",fontSize:13,fontWeight:600,color:'var(--accent)'}}>{Math.round(weatherVal)}%</span>
                             </div>
                             <input type="range" min="1" max="100"
@@ -1053,7 +1061,7 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                         </div>
 
                         <div className="settings-row">
-                            <div className="settings-label">Scope Creep +SP</div>
+                            <div className="settings-label">Scope Creep +SP <Tip text="Temporarily add points to see delivery impact — not saved, resets on reload" /></div>
                             <div style={{display:'flex',gap:6,alignItems:'center'}}>
                                 <input className="settings-input" type="number" min="0" max="999" style={{flex:1}}
                                     value={creepPoints}
@@ -1068,10 +1076,6 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                             </div>
                             <div className="creep-note">Not saved — for quick what-if checks</div>
                         </div>
-
-                        <button className="btn btn-ghost btn-sm" style={{width:'100%',marginTop:12}} onClick={() => setEditModal(true)}>
-                            Edit All Settings
-                        </button>
 
                         {firstForecast && (
                             <button className="btn btn-primary btn-sm" style={{width:'100%',marginTop:8}} onClick={() => setCompleteModal(true)}>
@@ -1094,16 +1098,16 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                         {done_table.length > 0 && (
                             <div className="table-section">
                                 <div className="table-section-title">Completed Sprints</div>
-                                <div className="card" style={{padding:0,overflow:'hidden'}}>
+                                <div className="card" style={{padding:0}}>
                                     <table className="data-table">
                                         <thead>
                                             <tr>
                                                 {done_table[0].start_date && <th>Dates</th>}
                                                 <th>Sprint</th>
-                                                <th>Total SP</th>
-                                                <th>Initiative Done</th>
-                                                <th>Focus %</th>
-                                                <th>Remaining</th>
+                                                <th>Total SP <Tip text="Total story points the team completed this sprint" /></th>
+                                                <th>Initiative Done <Tip text="Story points completed specifically for this initiative this sprint" /></th>
+                                                <th>Focus % <Tip text="Initiative Done ÷ Total SP — share of sprint work toward this initiative" /></th>
+                                                <th>Remaining <Tip text="Initiative story points still to complete after this sprint" /></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1126,8 +1130,8 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
                         {/* Forecast table */}
                         {forecast_table.length > 0 && (
                             <div className="table-section">
-                                <div className="table-section-title">Forecast</div>
-                                <div className="card" style={{padding:0,overflow:'hidden'}}>
+                                <div className="table-section-title">Forecast <Tip text="Each scenario projects sprint-by-sprint delivery based on focus %. Done = Avg Velocity × focus % for that scenario. Remaining counts down sprint by sprint until ✓ — the projected completion sprint." /></div>
+                                <div className="card" style={{padding:0}}>
                                     <table className="data-table">
                                         <thead>
                                             <tr>

@@ -324,7 +324,7 @@ h1, .top-bar-left, .eyebrow, .page-title, .login-logo, .login-sub { font-family:
 .col-zero    { color: var(--text-muted); font-style: italic; }
 
 /* ── Summary table ── */
-.summary-table { display: flex; gap: 0; margin-bottom: 24px; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.summary-table { display: flex; gap: 0; margin-bottom: 24px; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: visible; }
 .summary-cell { flex: 1; padding: 14px 16px; border-right: 1px solid var(--border); }
 .summary-cell:last-child { border-right: none; }
 .summary-cell-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
@@ -375,6 +375,7 @@ h1, .top-bar-left, .eyebrow, .page-title, .login-logo, .login-sub { font-family:
 .form-checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; color: var(--text-dim); }
 .form-checkbox input { width: auto; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.modal-footer  { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 28px 24px; flex-shrink: 0; border-top: 1px solid var(--border); }
 
 /* ── Sprint name preview ── */
 .sprint-preview {
@@ -457,4 +458,49 @@ input[type="range"]:disabled { opacity: 0.35; cursor: not-allowed; }
 
 input[type="date"]{
     font-family: ui-sans-serif, system-ui;
+}
+
+/* ── Tooltips ── */
+.tip {
+    display: inline-flex;
+    align-items: center;
+    cursor: default;
+    color: var(--text-muted);
+    font-size: 11px;
+    margin-left: 4px;
+    position: relative;
+    vertical-align: middle;
+    line-height: 1;
+}
+.tip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg3);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 400;
+    white-space: normal;
+    width: 240px;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 200;
+    transition: opacity 0.15s;
+    line-height: 1.45;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.tip:hover::after { opacity: 1; }
+/* Table header tooltips open downward to stay within the overflow:hidden card */
+th .tip::after {
+    top: calc(100% + 6px);
+    bottom: auto;
+    left: 0;
+    transform: none;
 }
