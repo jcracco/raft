@@ -1184,11 +1184,26 @@ function ProjectViewPage({ projectId, onBack, theme, onThemeToggle }) {
     );
 }
 
+// ── Hash router ───────────────────────────────────────────────────────────────
+function parseHash() {
+    const hash = window.location.hash;
+    if (!hash || hash === '#' || hash === '#/') return { view: 'list' };
+    if (hash === '#/quickplan') return { view: 'quickplan' };
+    const m = hash.match(/^#\/project\/(\d+)$/);
+    if (m) return { view: 'project', projectId: parseInt(m[1], 10) };
+    return { view: 'list' };
+}
+
+function navigate(route) {
+    if (route.view === 'list')      window.location.hash = '#/';
+    else if (route.view === 'quickplan') window.location.hash = '#/quickplan';
+    else if (route.view === 'project')   window.location.hash = `#/project/${route.projectId}`;
+}
+
 // ── App ────────────────────────────────────────────────────────────────────────
 function App() {
-    const [view, setView]           = useState('loading'); // loading | login | list | project
-    const [username, setUsername]   = useState('');
-    const [projectId, setProjectId] = useState(null);
+    const [authState, setAuthState] = useState('loading'); // loading | loggedIn | loggedOut
+    const [route, setRoute]         = useState(parseHash);
     const [theme, setTheme]         = useState(() => localStorage.getItem('raft_theme') || 'dark');
 
     useEffect(() => {
@@ -1198,26 +1213,56 @@ function App() {
 
     useEffect(() => {
         api('session').then(s => {
-            if (s.logged_in) { setUsername(s.username); setView('list'); }
-            else setView('login');
-        }).catch(() => setView('login'));
+            setAuthState(s.logged_in ? 'loggedIn' : 'loggedOut');
+        }).catch(() => setAuthState('loggedOut'));
     }, []);
+
+    // Browser back / forward
+    useEffect(() => {
+        function onHashChange() { setRoute(parseHash()); }
+        window.addEventListener('hashchange', onHashChange);
+        return () => window.removeEventListener('hashchange', onHashChange);
+    }, []);
+
+    function go(route) {
+        navigate(route);
+        setRoute(route);
+    }
 
     async function handleLogout() {
         await api('logout', {}, 'POST');
-        setView('login'); setUsername('');
+        setAuthState('loggedOut');
+        go({ view: 'list' });
     }
 
     const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
-    if (view === 'loading')   return <div className="loading"><div className="spinner" /></div>;
-    if (view === 'login')     return <LoginPage onLogin={u => { setUsername(u); setView('list'); }} theme={theme} onThemeToggle={toggleTheme} />;
-    if (view === 'project')   return <ProjectViewPage projectId={projectId} onBack={() => setView('list')} theme={theme} onThemeToggle={toggleTheme} />;
-    if (view === 'quickplan') return <QuickPlanPage onBack={() => setView('list')} theme={theme} onThemeToggle={toggleTheme} />;
+    if (authState === 'loading') return <div className="loading"><div className="spinner" /></div>;
+
+    if (authState === 'loggedOut') {
+        return <LoginPage
+            onLogin={() => setAuthState('loggedIn')}
+            theme={theme}
+            onThemeToggle={toggleTheme}
+        />;
+    }
+
+    if (route.view === 'quickplan') {
+        return <QuickPlanPage onBack={() => go({ view: 'list' })} theme={theme} onThemeToggle={toggleTheme} />;
+    }
+
+    if (route.view === 'project' && route.projectId) {
+        return <ProjectViewPage
+            projectId={route.projectId}
+            onBack={() => go({ view: 'list' })}
+            theme={theme}
+            onThemeToggle={toggleTheme}
+        />;
+    }
 
     return <ProjectListPage
-        onOpen={id => { setProjectId(id); setView('project'); }}
-        onQuickPlan={() => setView('quickplan')}
+        onOpen={id => go({ view: 'project', projectId: id })}
+        onQuickPlan={() => go({ view: 'quickplan' })}
         onLogout={handleLogout}
         theme={theme}
         onThemeToggle={toggleTheme}
