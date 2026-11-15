@@ -191,23 +191,72 @@ function Tip({ text }) {
     return <span className="tip hide-mobile" data-tooltip={text}>ⓘ</span>;
 }
 
-// ── ThemeToggle (fixed bottom-right, always visible) ─────────────────────────
-function ThemeToggle({ theme, onToggle }) {
+// ── Top-bar actions: theme icon (demo / logged out) or user pill menu ────────
+function ThemeButton({ theme, onToggle }) {
     const Icon = theme === 'dark' ? Sun : Moon;
     return (
-        <button onClick={onToggle} title="Toggle theme"
-            style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 500,
-                background: 'var(--bg2)', border: '1px solid var(--border)',
-                borderRadius: '50%', width: 36, height: 36, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--text-muted)', transition: 'all 0.15s' }}>
+        <button className="icon-btn" onClick={onToggle} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>
             <Icon size={16} />
         </button>
     );
 }
 
+function UserMenu({ username, theme, onToggleTheme, onShare, onLogout }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const onDown = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        const onKey  = e => { if (e.key === 'Escape') setOpen(false); };
+        document.addEventListener('mousedown', onDown);
+        document.addEventListener('touchstart', onDown);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDown);
+            document.removeEventListener('touchstart', onDown);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [open]);
+
+    const pick = fn => () => { setOpen(false); fn(); };
+
+    return (
+        <div className="user-menu-wrap" ref={ref}>
+            <button className={'user-chip' + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}
+                aria-haspopup="menu" aria-expanded={open}>
+                {username || 'me'}
+            </button>
+            {open && (
+                <div className="user-menu" role="menu">
+                    {onShare && <>
+                        <button className="user-menu-item" role="menuitem" onClick={pick(onShare)}>
+                            <Share2 size={14} /> Share project
+                        </button>
+                        <div className="user-menu-divider" />
+                    </>}
+                    <button className="user-menu-item" role="menuitem" onClick={pick(onToggleTheme)}>
+                        {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+                        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                    </button>
+                    <div className="user-menu-divider" />
+                    <button className="user-menu-item danger" role="menuitem" onClick={pick(onLogout)}>
+                        <LogOut size={14} /> Sign Out
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Rightmost top-bar slot for logged-in pages: theme icon in the demo, user pill otherwise.
+function TopBarAccount({ username, theme, onToggleTheme, onShare, onLogout }) {
+    if (IS_DEMO) return <ThemeButton theme={theme} onToggle={onToggleTheme} />;
+    return <UserMenu username={username} theme={theme} onToggleTheme={onToggleTheme} onShare={onShare} onLogout={onLogout} />;
+}
+
 // ── LoginPage ───────────────────────────────────────────────────────────────
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, theme, onToggleTheme }) {
     const [username, setUsername] = useState(IS_DEMO ? 'demo' : '');
     const [password, setPassword] = useState(IS_DEMO ? 'demo' : '');
     const [error, setError]       = useState('');
@@ -228,6 +277,7 @@ function LoginPage({ onLogin }) {
 
     return (
         <div className="login-wrap">
+            <div className="login-theme"><ThemeButton theme={theme} onToggle={onToggleTheme} /></div>
             <div className="login-box">
                 <div className="login-logo">RAFT</div>
                 <div className="login-sub">Range And Forecasting Tool</div>
@@ -747,7 +797,7 @@ function BurndownChart({ doneTable, forecastTable, totalPoints, creepPoints, the
 }
 
 // ── QuickPlanPage ─────────────────────────────────────────────────────────────
-function QuickPlanPage({ onBack, onLogout, theme }) {
+function QuickPlanPage({ onBack, onLogout, theme, onToggleTheme, username }) {
     const [sp,       setSp]      = useState(200);
     const [velocity, setVel]     = useState(40);
     const [weather,  setWeather] = useState(55);
@@ -790,7 +840,7 @@ function QuickPlanPage({ onBack, onLogout, theme }) {
                 </div>
                 <div className="top-bar-right">
                     <button className="btn btn-ghost btn-sm" onClick={onBack} style={{display:'inline-flex',alignItems:'center',gap:4}}><ArrowLeft size={15} />Back</button>
-                    {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onLogout} title="Sign out"><LogOut size={15} /></button>}
+                    <TopBarAccount username={username} theme={theme} onToggleTheme={onToggleTheme} onLogout={onLogout} />
                 </div>
             </div>
             <div className="main">
@@ -850,7 +900,7 @@ function QuickPlanPage({ onBack, onLogout, theme }) {
 }
 
 // ── ProjectListPage ────────────────────────────────────────────────────────────
-function ProjectListPage({ onOpen, onQuickPlan, onLogout }) {
+function ProjectListPage({ onOpen, onQuickPlan, onLogout, theme, onToggleTheme, username }) {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading]   = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -885,7 +935,7 @@ function ProjectListPage({ onOpen, onQuickPlan, onLogout }) {
                     <h1>RAFT</h1>
                 </div>
                 <div className="top-bar-right">
-                    {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onLogout} title="Sign out"><LogOut size={15} /></button>}
+                    <TopBarAccount username={username} theme={theme} onToggleTheme={onToggleTheme} onLogout={onLogout} />
                 </div>
             </div>
             <div className="main">
@@ -981,7 +1031,7 @@ function ShareModal({ url, onClose }) {
     );
 }
 
-function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, theme }) {
+function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, theme, onToggleTheme, username }) {
     const [data, setData]               = useState(null);
     const [isOwner, setIsOwner]         = useState(false);
     const [shareModal, setShareModal]   = useState(false);
@@ -1080,12 +1130,13 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                     {isLoggedIn
                         ? <>
                             <button className="btn btn-ghost btn-sm" onClick={onBack} style={{display:'inline-flex',alignItems:'center',gap:4}}><ArrowLeft size={15} />Projects</button>
-                            {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={() => setShareModal(true)} title="Share project"><Share2 size={15} /></button>}
-                            {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={onLogout} title="Sign out"><LogOut size={15} /></button>}
+                            <TopBarAccount username={username} theme={theme} onToggleTheme={onToggleTheme}
+                                onShare={() => setShareModal(true)} onLogout={onLogout} />
                           </>
                         : <>
                             {!IS_DEMO && <button className="btn btn-ghost btn-sm" onClick={() => setShareModal(true)} title="Share project"><Share2 size={15} /></button>}
                             <button className="btn btn-ghost btn-sm" onClick={onSignIn}>Sign in</button>
+                            <ThemeButton theme={theme} onToggle={onToggleTheme} />
                           </>
                     }
                 </div>
@@ -1411,6 +1462,7 @@ function navigate(route) {
 // ── App ────────────────────────────────────────────────────────────────────────
 function App() {
     const [authState, setAuthState] = useState('loading'); // loading | loggedIn | loggedOut
+    const [username, setUsername]   = useState('');
     const [route, setRoute]         = useState(parseHash);
     const [forceLogin, setForceLogin] = useState(false);
     const [theme, setTheme]         = useState(() => localStorage.getItem('raft_theme') || 'dark');
@@ -1423,6 +1475,7 @@ function App() {
 
     useEffect(() => {
         api('session').then(s => {
+            setUsername(s.username || '');
             setAuthState(s.logged_in ? 'loggedIn' : 'loggedOut');
         }).catch(() => setAuthState('loggedOut'));
     }, []);
@@ -1441,48 +1494,44 @@ function App() {
 
     async function handleLogout() {
         await api('logout', {}, 'POST');
+        setUsername('');
         setAuthState('loggedOut');
         go({ view: 'list' });
     }
 
     const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
-    const themeToggle = <ThemeToggle theme={theme} onToggle={toggleTheme} />;
+    const shared = { theme, onToggleTheme: toggleTheme, username };
 
-    if (authState === 'loading') return <>{themeToggle}<div className="loading"><div className="spinner" /></div></>;
+    if (authState === 'loading') return <div className="loading"><div className="spinner" /></div>;
 
-    let content;
     if (authState === 'loggedOut') {
         if (!forceLogin && route.view === 'project' && route.urlToken) {
-            content = <ProjectViewPage
+            return <ProjectViewPage {...shared}
                 urlToken={route.urlToken}
                 isLoggedIn={false}
                 onBack={null}
                 onSignIn={() => setForceLogin(true)}
-                theme={theme}
             />;
-        } else {
-            content = <LoginPage onLogin={() => { setAuthState('loggedIn'); setForceLogin(false); }} />;
         }
-    } else if (route.view === 'quickplan') {
-        content = <QuickPlanPage onBack={() => go({ view: 'list' })} onLogout={handleLogout} theme={theme} />;
-    } else if (route.view === 'project' && route.urlToken) {
-        content = <ProjectViewPage
+        return <LoginPage {...shared} onLogin={name => { setUsername(name); setAuthState('loggedIn'); setForceLogin(false); }} />;
+    }
+    if (route.view === 'quickplan') {
+        return <QuickPlanPage {...shared} onBack={() => go({ view: 'list' })} onLogout={handleLogout} />;
+    }
+    if (route.view === 'project' && route.urlToken) {
+        return <ProjectViewPage {...shared}
             urlToken={route.urlToken}
             isLoggedIn={true}
             onBack={() => go({ view: 'list' })}
             onSignIn={null}
             onLogout={handleLogout}
-            theme={theme}
-        />;
-    } else {
-        content = <ProjectListPage
-            onOpen={token => go({ view: 'project', urlToken: token })}
-            onQuickPlan={() => go({ view: 'quickplan' })}
-            onLogout={handleLogout}
         />;
     }
-
-    return <>{content}{themeToggle}</>;
+    return <ProjectListPage {...shared}
+        onOpen={token => go({ view: 'project', urlToken: token })}
+        onQuickPlan={() => go({ view: 'quickplan' })}
+        onLogout={handleLogout}
+    />;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);

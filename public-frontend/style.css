@@ -141,6 +141,76 @@ h1, .top-bar-left, .eyebrow, .page-title, .login-logo, .login-sub { font-family:
 .btn-sm { padding: 5px 10px; font-size: 12px; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* ── Top-bar icon button + user pill menu (mirrors CATS) ── */
+.icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 5px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: color 0.12s;
+}
+.icon-btn:hover { color: var(--text); }
+.user-menu-wrap { position: relative; }
+.user-chip {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.4px;
+    padding: 5px 13px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.user-chip:hover, .user-chip.open {
+    border-color: var(--accent);
+    color: var(--text);
+    background: rgba(59,130,246,0.08);
+}
+.user-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 180px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    padding: 6px;
+    z-index: 600;
+    animation: dropdown-in 0.14s ease;
+}
+[data-theme="light"] .user-menu { box-shadow: 0 12px 32px rgba(15,23,42,0.15); }
+@keyframes dropdown-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.user-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 8px 10px;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    transition: background 0.1s, color 0.1s;
+}
+.user-menu-item:hover { background: rgba(59,130,246,0.09); color: var(--text); }
+.user-menu-item.danger { color: var(--bad); }
+.user-menu-item.danger:hover { background: rgba(239,68,68,0.1); color: var(--bad); }
+.user-menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+.login-wrap { position: relative; }
+.login-theme { position: absolute; top: 16px; right: 16px; }
+
 /* ── Theme toggle ── */
 .theme-toggle {
     background: var(--toggle-bg);
@@ -558,9 +628,13 @@ th .tip::after {
     .demo-banner { padding: 8px 16px; gap: 12px; }
     .top-bar { padding: 20px 16px 16px; }
     .eyebrow { letter-spacing: 3px; }
-    .main { padding: 0 16px 80px; } /* bottom room for the floating theme toggle */
+    .main { padding: 0 16px 36px; }
     .shared-note-wrap { padding: 0 16px 8px; }
     .btn { min-height: 44px; justify-content: center; }
+    .icon-btn { min-width: 44px; min-height: 44px; }
+    .user-chip { min-height: 36px; }
+    .user-menu-item { min-height: 44px; font-size: 14px; }
+    .top-bar-right { gap: 6px; }
     .page-header { margin-bottom: 16px; }
 
     /* Project list */
