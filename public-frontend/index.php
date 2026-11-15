@@ -159,21 +159,37 @@ function sprintEndDateFromProject(project, sprint_number, sprint_year) {
 }
 
 // ── Tooltip icon ─────────────────────────────────────────────────────────────
-// On hover, flip the tooltip to open leftward (.tip-left in style.css) when its
-// 240px box would run past the right edge of the window.
+// Shown on hover (desktop) or tap (touch: phones, iPad — `hover: none`).
+// placeTip() positions the box via --tip-x / --tip-w (style.css) so it is always
+// fully inside the window: centred on the icon by default, starting at the icon
+// for table headers and align="start" tips, then clamped to the screen edges.
 const TIP_WIDTH = 240, TIP_MARGIN = 8;
+function placeTip(tip) {
+    const r  = tip.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const w  = Math.min(TIP_WIDTH, vw - TIP_MARGIN * 2);
+    const startAligned = tip.dataset.align === 'start' || tip.closest('th');
+    const preferred = startAligned ? r.left : r.left + r.width / 2 - w / 2;
+    const left = Math.max(TIP_MARGIN, Math.min(preferred, vw - TIP_MARGIN - w));
+    tip.style.setProperty('--tip-x', `${Math.round(left - r.left)}px`);
+    tip.style.setProperty('--tip-w', `${w}px`);
+}
 document.addEventListener('mouseover', e => {
     const tip = e.target.closest && e.target.closest('.tip');
+    if (tip) placeTip(tip);
+});
+const IS_TOUCH = window.matchMedia('(hover: none)');
+document.addEventListener('click', e => {
+    if (!IS_TOUCH.matches) return;
+    const tip = e.target.closest && e.target.closest('.tip');
+    document.querySelectorAll('.tip.tip-open').forEach(t => { if (t !== tip) t.classList.remove('tip-open'); });
     if (!tip) return;
-    const r = tip.getBoundingClientRect();
-    const right = tip.closest('th')
-        ? r.left + TIP_WIDTH                    // header tips open rightward from the icon
-        : r.left + r.width / 2 + TIP_WIDTH / 2; // others are centred on it
-    tip.classList.toggle('tip-left', right > document.documentElement.clientWidth - TIP_MARGIN);
+    placeTip(tip);
+    tip.classList.toggle('tip-open');
 });
 
-function Tip({ text }) {
-    return <span className="tip hide-mobile" data-tooltip={text}>ⓘ</span>;
+function Tip({ text, align }) {
+    return <span className="tip" data-tooltip={text} data-align={align} role="button" tabIndex={-1} aria-label={text}>ⓘ</span>;
 }
 
 // ── Top-bar actions: theme icon (demo / logged out) or user pill menu ────────
@@ -853,6 +869,7 @@ function QuickPlanPage({ onBack, onLogout, theme, onToggleTheme, username }) {
                         </div>
                     </div>
                     <div>
+                        <div className="table-section-title">Sprints needed <Tip align="start" text="How many sprints until the points reach zero under three focus scenarios. Focus % is the share of velocity going to this work each sprint: Bad weather 35% (interruptions, bugs, unplanned work), Current weather = the slider, Good weather 75% (clean sprints)." /></div>
                         <div className="scenario-grid">
                             <div className="scenario-card">
                                 <div className="scenario-label bad">Bad Weather<br />(Focus: 35% )</div>
@@ -1180,6 +1197,7 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                 </div>
 
                 {/* Scenario cards */}
+                <div className="table-section-title">Projected delivery <Tip align="start" text="When the remaining points reach zero under three focus scenarios. Focus % is the share of the team's velocity going to this initiative each sprint: Bad weather 35% (interruptions, bugs, unplanned work), Current weather = your current setting, Good weather 75% (clean sprints). Each card shows the completion sprint, how many sprints from now, and its end date." /></div>
                 <div className="scenario-grid">
                     <div className="scenario-card">
                         <div className="scenario-label bad">Bad Weather<br />(Focus: 35%)</div>
@@ -1217,7 +1235,7 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                                 <div className="settings-value readonly">{current_sprint}</div>
                             </div>
                             <div className="settings-row">
-                                <div className="settings-label">Points Remaining</div>
+                                <div className="settings-label">Points Remaining <Tip text="Initiative points still to deliver at the start of the current sprint (includes any scope creep what-if)" /></div>
                                 <div className="settings-value readonly">{Math.round(adjustedRemaining)}</div>
                             </div>
                         </div>
@@ -1340,7 +1358,7 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                         {/* Forecast table */}
                         {forecast_table.length > 0 && isMobile && (
                             <div className="table-section">
-                                <div className="table-section-title">Forecast — points remaining</div>
+                                <div className="table-section-title">Forecast — points remaining <Tip align="start" text="Points left to deliver at the end of each sprint, per scenario. Each sprint removes Avg Velocity × that scenario's focus %. ✓ marks the projected completion sprint." /></div>
                                 <div className="card" style={{padding:0}}>
                                     <table className="data-table forecast-compact">
                                         <thead>
@@ -1367,7 +1385,7 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                         )}
                         {forecast_table.length > 0 && !isMobile && (
                             <div className="table-section">
-                                <div className="table-section-title">Forecast <Tip text="Each scenario projects sprint-by-sprint delivery based on focus %. Done = Avg Velocity × focus % for that scenario. Remaining counts down sprint by sprint until ✓ — the projected completion sprint." /></div>
+                                <div className="table-section-title">Forecast <Tip align="start" text="Each scenario projects sprint-by-sprint delivery based on focus %. Done = Avg Velocity × focus % for that scenario. Remaining counts down sprint by sprint until ✓ — the projected completion sprint." /></div>
                                 <div className="card" style={{padding:0}}>
                                     <table className="data-table">
                                         <thead>

@@ -550,8 +550,7 @@ input[type="date"]{
     content: attr(data-tooltip);
     position: absolute;
     bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
+    left: var(--tip-x, -112px); /* set by placeTip() in index.php; fallback ≈ centred */
     background: var(--bg3);
     color: var(--text);
     border: 1px solid var(--border);
@@ -560,7 +559,7 @@ input[type="date"]{
     font-size: 12px;
     font-weight: 400;
     white-space: normal;
-    width: 240px;
+    width: var(--tip-w, 240px);
     pointer-events: none;
     display: none; /* not opacity:0 — a hidden tooltip must not take space and widen the page */
     z-index: 200;
@@ -569,20 +568,17 @@ input[type="date"]{
     text-transform: none;
     letter-spacing: 0;
 }
-.tip:hover::after { display: block; animation: tip-fade 0.15s; }
+.tip:hover::after, .tip.tip-open::after { display: block; animation: tip-fade 0.15s; }
 @keyframes tip-fade { from { opacity: 0; } to { opacity: 1; } }
 /* Table header tooltips open downward to stay within the overflow:hidden card */
 th .tip::after {
     top: calc(100% + 6px);
     bottom: auto;
-    left: 0;
-    transform: none;
 }
-/* Near the right edge: open to the left of the icon (.tip-left set on hover in index.php) */
-.tip.tip-left::after {
-    left: auto;
-    right: 0;
-    transform: none;
+@media (hover: none) {
+    .tip { padding: 6px; margin: -6px -6px -6px -2px; cursor: pointer; } /* bigger tap area, same visual spot */
+    .tip:hover::after { display: none; } /* touch: only the tap-toggled .tip-open shows */
+    .tip.tip-open::after { display: block; }
 }
 
 /* ══ Narrow desktop / tablet landscape (<1100px) ══
@@ -644,11 +640,16 @@ th .tip::after {
     /* Summary strip → 2-col grid, Initiative full width */
     .summary-table {
         display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
-        background: var(--border); overflow: hidden; margin-bottom: 16px;
+        background: var(--border); margin-bottom: 16px;
     }
     .summary-cell { background: var(--bg2); border-right: none; padding: 10px 14px; }
     .summary-cell:first-child,
     .summary-cell:last-child:nth-child(even) { grid-column: 1 / -1; }
+    /* Round the corner cells instead of overflow:hidden, which would clip tooltips */
+    .summary-cell:first-child { border-radius: 11px 11px 0 0; }
+    .summary-cell:last-child { border-bottom-right-radius: 11px; }
+    .summary-cell:last-child:nth-child(even),
+    .summary-cell:nth-last-child(2):nth-child(even) { border-bottom-left-radius: 11px; }
     .summary-cell-value { font-size: 16px; }
 
     /* Scenario cards → stacked rows: label left, result right */
