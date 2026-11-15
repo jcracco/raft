@@ -18,21 +18,6 @@ $IS_DEMO = is_demo();
     <script src="mock-api.js"></script>
     <?php endif; ?>
     <?php if ($IS_DEMO && defined('UMAMI_ENABLED') && UMAMI_ENABLED): ?>
-    <script>
-        // Allows ?src to be tracked as ?utm_source in umami
-            (function() {
-            const url = new URL(window.location.href);
-            const shortSrc = url.searchParams.get('src');
-            
-            if (shortSrc) {
-                url.searchParams.set('utm_source', shortSrc);
-                url.searchParams.delete('src');
-                
-                // Updates the address bar dynamically without a page refresh
-                window.history.replaceState(null, '', url.pathname + url.search);
-            }
-            })();
-        </script>
     <script defer src="https://cloud.umami.is/script.js" data-website-id="<?php echo UMAMI_WEBSITE_ID; ?>"></script>
 <?php endif; ?>
 </head>
