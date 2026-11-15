@@ -9,7 +9,7 @@ $IS_DEMO = is_demo();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $IS_DEMO ? 'RAFT - Demo' : 'RAFT - Range and Forecasting Tool'; ?></title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231e2535'/%3E%3Cpath d='M4 7 Q18 10 28 18' stroke='%23ef4444' stroke-width='1.4' fill='none' stroke-linecap='round' opacity='0.85'/%3E%3Cpath d='M4 15 Q16 15 28 18' stroke='%2360a5fa' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cpath d='M4 23 Q18 20 28 18' stroke='%234ade80' stroke-width='1.4' fill='none' stroke-linecap='round' opacity='0.85'/%3E%3Ccircle cx='28' cy='18' r='1.5' fill='%23e2e8f0' opacity='0.4'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=<?= filemtime(__DIR__ . '/style.css') ?>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -67,6 +67,42 @@ const Sun      = ({ size = 24 }) => <LucideIcon size={size}><circle cx="12" cy="
 const Moon     = ({ size = 24 }) => <LucideIcon size={size}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></LucideIcon>;
 const Check    = ({ size = 24 }) => <LucideIcon size={size}><polyline points="20 6 9 17 4 12"/></LucideIcon>;
 const IS_DEMO = <?= $IS_DEMO ? 'true' : 'false' ?>;
+
+// ── Mobile breakpoint ────────────────────────────────────────────────────────
+// Keep in sync with the `@media (max-width: 767px)` block in style.css.
+const MOBILE_QUERY = '(max-width: 767px)';
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+    useEffect(() => {
+        const mq = window.matchMedia(MOBILE_QUERY);
+        const onChange = e => setIsMobile(e.matches);
+        mq.addEventListener('change', onChange);
+        setIsMobile(mq.matches);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+    return isMobile;
+}
+
+// iOS doesn't shrink 100dvh when the keyboard opens. Expose the visual viewport
+// as CSS vars so the mobile modal overlay (style.css) stays above the keyboard.
+function useVisualViewportVars() {
+    useEffect(() => {
+        const vv = window.visualViewport;
+        if (!vv) return;
+        const s = document.documentElement.style;
+        const update = () => {
+            s.setProperty('--vv-top', `${vv.offsetTop}px`);
+            s.setProperty('--vv-height', `${vv.height}px`);
+        };
+        update();
+        vv.addEventListener('resize', update);
+        vv.addEventListener('scroll', update);
+        return () => {
+            vv.removeEventListener('resize', update);
+            vv.removeEventListener('scroll', update);
+        };
+    }, []);
+}
 
 // Clipboard helper — falls back to execCommand for non-HTTPS contexts
 function copyToClipboard(text) {
@@ -138,8 +174,21 @@ function sprintEndDateFromProject(project, sprint_number, sprint_year) {
 }
 
 // ── Tooltip icon ─────────────────────────────────────────────────────────────
+// On hover, flip the tooltip to open leftward (.tip-left in style.css) when its
+// 240px box would run past the right edge of the window.
+const TIP_WIDTH = 240, TIP_MARGIN = 8;
+document.addEventListener('mouseover', e => {
+    const tip = e.target.closest && e.target.closest('.tip');
+    if (!tip) return;
+    const r = tip.getBoundingClientRect();
+    const right = tip.closest('th')
+        ? r.left + TIP_WIDTH                    // header tips open rightward from the icon
+        : r.left + r.width / 2 + TIP_WIDTH / 2; // others are centred on it
+    tip.classList.toggle('tip-left', right > document.documentElement.clientWidth - TIP_MARGIN);
+});
+
 function Tip({ text }) {
-    return <span className="tip" data-tooltip={text}>ⓘ</span>;
+    return <span className="tip hide-mobile" data-tooltip={text}>ⓘ</span>;
 }
 
 // ── ThemeToggle (fixed bottom-right, always visible) ─────────────────────────
@@ -304,7 +353,7 @@ function ProjectModal({ project, onSave, onClose }) {
     }, []);
 
     return (
-        <div className="modal-overlay">
+        <div className="modal-overlay modal-overlay-full">
             <div className="modal">
                 <div className="modal-header">
                     <div className="modal-title">{editing ? 'Edit Project' : 'New Project'}</div>
@@ -496,7 +545,7 @@ function CompleteSprintModal({ sprintName, sprintNumber, sprintYear, onSave, onC
     }
 
     return (
-        <div className="modal-overlay">
+        <div className="modal-overlay modal-overlay-full">
             <div className="modal" style={{maxWidth:420}}>
                 <div className="modal-header">
                     <div className="modal-title">Complete {sprintName}</div>
@@ -506,7 +555,7 @@ function CompleteSprintModal({ sprintName, sprintNumber, sprintYear, onSave, onC
                 {error && <div className="error-msg" style={{marginBottom:16}}>{error}</div>}
                 <div className="form-group">
                     <label className="form-label">Total Sprint Points (team velocity this sprint)</label>
-                    <input className="form-input" type="number" min="0" value={totalSP} onChange={e => {
+                    <input className="form-input" type="number" inputMode="numeric" min="0" value={totalSP} onChange={e => {
                         const v = e.target.value;
                         setTotalSP(v);
                         if (v !== '' && initDone !== '' && parseInt(initDone) > parseInt(v)) {
@@ -516,7 +565,7 @@ function CompleteSprintModal({ sprintName, sprintNumber, sprintYear, onSave, onC
                 </div>
                 <div className="form-group">
                     <label className="form-label">Initiative Work Done (points toward this initiative)</label>
-                    <input className="form-input" type="number" min="0" max={totalSP || undefined} value={initDone}
+                    <input className="form-input" type="number" inputMode="numeric" min="0" max={totalSP || undefined} value={initDone}
                         onChange={e => {
                             const v = e.target.value;
                             if (v === '') { setInitDone(''); return; }
@@ -544,6 +593,7 @@ function CompleteSprintModal({ sprintName, sprintNumber, sprintYear, onSave, onC
 function BurndownChart({ doneTable, forecastTable, totalPoints, creepPoints, theme }) {
     const canvasRef = useRef(null);
     const chartRef  = useRef(null);
+    const isMobile  = useIsMobile();
 
     useEffect(() => {
         if (!canvasRef.current) return;
@@ -656,7 +706,11 @@ function BurndownChart({ doneTable, forecastTable, totalPoints, creepPoints, the
                 },
                 scales: {
                     x: {
-                        ticks: { color: tickColor, font: { family: font, size: 10 }, maxRotation: 45, minRotation: 45 },
+                        ticks: isMobile
+                            ? { color: tickColor, font: { family: font, size: 10 }, maxRotation: 0, minRotation: 0, autoSkip: true, maxTicksLimit: 5,
+                                // "Sprint 2026.06" → "2026.06" to fit a phone
+                                callback(value) { return String(this.getLabelForValue(value)).split(' ').pop(); } }
+                            : { color: tickColor, font: { family: font, size: 10 }, maxRotation: 45, minRotation: 45 },
                         grid:  { display: false },
                         border: { color: borderColor },
                     },
@@ -672,7 +726,7 @@ function BurndownChart({ doneTable, forecastTable, totalPoints, creepPoints, the
         });
 
         return () => { if (chartRef.current) chartRef.current.destroy(); };
-    }, [doneTable, forecastTable, totalPoints, creepPoints, theme]);
+    }, [doneTable, forecastTable, totalPoints, creepPoints, theme, isMobile]);
 
     return (
         <div className="chart-card">
@@ -940,6 +994,8 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
     const [bufferVal, setBufferVal]         = useState('');
     const [velocityVal, setVelocityVal]     = useState('');
     const [weatherVal, setWeatherVal]       = useState('');
+    const [settingsOpen, setSettingsOpen]   = useState(false); // settings accordion, stacked layout only
+    const isMobile = useIsMobile(); // must stay above the early returns below
 
     useEffect(() => { loadProject(); }, [urlToken]);
 
@@ -1035,7 +1091,7 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                 </div>
             </div>
             {!isOwner && (
-                <div style={{maxWidth:1200,margin:'0 auto',padding:'4px 28px 8px'}}>
+                <div className="shared-note-wrap">
                     <div style={{fontSize:12,color:'var(--text-muted)',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius)',padding:'7px 14px'}}>
                         {isLoggedIn
                             ? 'You\'re viewing a shared project.'
@@ -1117,15 +1173,26 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                             <button className="btn btn-ghost btn-sm" style={{padding:'4px',lineHeight:0,border:'none'}} onClick={() => setEditModal(true)} title="Edit all settings"><Settings size={15} /></button>
                         </div>
 
-                        <div className="settings-row">
-                            <div className="settings-label">Current Sprint <Tip text="Next sprint to be completed — advances automatically when you complete a sprint" /></div>
-                            <div className="settings-value readonly">{current_sprint}</div>
-                        </div>
-                        <div className="settings-row">
-                            <div className="settings-label">Points Remaining</div>
-                            <div className="settings-value readonly">{Math.round(adjustedRemaining)}</div>
+                        {/* .settings-pair / .settings-collapsible are display:contents on wide
+                            screens; they only change layout once the card stacks (<900px, style.css) */}
+                        <div className="settings-pair">
+                            <div className="settings-row">
+                                <div className="settings-label">Current Sprint <Tip text="Next sprint to be completed — advances automatically when you complete a sprint" /></div>
+                                <div className="settings-value readonly">{current_sprint}</div>
+                            </div>
+                            <div className="settings-row">
+                                <div className="settings-label">Points Remaining</div>
+                                <div className="settings-value readonly">{Math.round(adjustedRemaining)}</div>
+                            </div>
                         </div>
 
+                        <button type="button" className="settings-accordion-toggle"
+                            aria-expanded={settingsOpen} onClick={() => setSettingsOpen(o => !o)}>
+                            <span>Velocity, weather &amp; scope creep{creepNum > 0 && <span className="settings-accordion-badge">+{creepNum} SP</span>}</span>
+                            <span className="settings-accordion-chevron">▸</span>
+                        </button>
+
+                        <div className={'settings-collapsible' + (settingsOpen ? ' open' : '')}>
                         <div className="settings-row">
                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:4}}>
                                 <div className="settings-label" style={{marginBottom:0}}>Avg Velocity <Tip text="Team's average story points completed per sprint" /></div>
@@ -1169,7 +1236,7 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                         <div className="settings-row">
                             <div className="settings-label">Scope Creep +SP <Tip text="Temporarily add points to see delivery impact — not saved, resets on reload" /></div>
                             <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                                <input className="settings-input" type="number" min="0" max="999" style={{flex:1}}
+                                <input className="settings-input" type="number" inputMode="numeric" min="0" max="999" style={{flex:1}}
                                     value={creepPoints}
                                     onChange={e => {
                                         const v = e.target.value;
@@ -1182,6 +1249,7 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                             </div>
                             <div className="creep-note">Not saved — for quick what-if checks</div>
                         </div>
+                        </div>{/* /settings-collapsible */}
 
                         {firstForecast && (
                             <button className="btn btn-primary btn-sm" style={{width:'100%',marginTop:8}} onClick={() => setCompleteModal(true)}>
@@ -1208,7 +1276,7 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                                     <table className="data-table">
                                         <thead>
                                             <tr>
-                                                {done_table[0].start_date && <th>Dates</th>}
+                                                {done_table[0].start_date && <th className="col-p3">Dates</th>}
                                                 <th>Sprint</th>
                                                 <th>Total SP <Tip text="Total story points the team completed this sprint" /></th>
                                                 <th>Initiative Done <Tip text="Story points completed specifically for this initiative this sprint" /></th>
@@ -1219,7 +1287,7 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                                         <tbody>
                                             {done_table.map((r, i) => (
                                                 <tr key={i}>
-                                                    {r.start_date && <td className="col-dim">{r.start_date}{r.end_date ? ` → ${r.end_date}` : ''}</td>}
+                                                    {r.start_date && <td className="col-dim col-p3">{r.start_date}{r.end_date ? ` → ${r.end_date}` : ''}</td>}
                                                     <td>{r.sprint_name}</td>
                                                     <td>{r.total_sprint_sp}</td>
                                                     <td>{r.initiative_work_done}</td>
@@ -1234,14 +1302,41 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                         )}
 
                         {/* Forecast table */}
-                        {forecast_table.length > 0 && (
+                        {forecast_table.length > 0 && isMobile && (
+                            <div className="table-section">
+                                <div className="table-section-title">Forecast — points remaining</div>
+                                <div className="card" style={{padding:0}}>
+                                    <table className="data-table forecast-compact">
+                                        <thead>
+                                            <tr>
+                                                <th>Sprint</th>
+                                                <th className="th-group th-group-bad">Bad<br/>35%</th>
+                                                <th className="th-group th-group-current">Current<br/>{Math.round(project.current_weather_pct)}%</th>
+                                                <th className="th-group th-group-good">Good<br/>75%</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {forecast_table.map((r, i) => (
+                                                <tr key={i}>
+                                                    <td>{r.sprint_name}</td>
+                                                    <td className={r.bad_remaining === 0 ? 'col-zero' : 'col-bad'}>{r.bad_remaining === 0 ? '✓' : Math.round(r.bad_remaining)}</td>
+                                                    <td className={r.cur_remaining === 0 ? 'col-zero' : 'col-current'}>{r.cur_remaining === 0 ? '✓' : Math.round(r.cur_remaining)}</td>
+                                                    <td className={r.good_remaining === 0 ? 'col-zero' : 'col-good'}>{r.good_remaining === 0 ? '✓' : Math.round(r.good_remaining)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                        {forecast_table.length > 0 && !isMobile && (
                             <div className="table-section">
                                 <div className="table-section-title">Forecast <Tip text="Each scenario projects sprint-by-sprint delivery based on focus %. Done = Avg Velocity × focus % for that scenario. Remaining counts down sprint by sprint until ✓ — the projected completion sprint." /></div>
                                 <div className="card" style={{padding:0}}>
                                     <table className="data-table">
                                         <thead>
                                             <tr>
-                                                {forecast_table[0].start_date && <th rowSpan={2} style={{verticalAlign:'middle'}}>Dates</th>}
+                                                {forecast_table[0].start_date && <th rowSpan={2} className="col-p3" style={{verticalAlign:'middle'}}>Dates</th>}
                                                 <th rowSpan={2} style={{verticalAlign:'middle'}}>Sprint</th>
                                                 <th colSpan={2} className="th-group th-group-bad">Bad weather<br/>(35% focus)</th>
                                                 <th colSpan={2} className="th-group th-group-current">Current weather<br/>({Math.round(project.current_weather_pct)}% focus)</th>
@@ -1259,7 +1354,7 @@ function ProjectViewPage({ urlToken, isLoggedIn, onBack, onSignIn, onLogout, the
                                         <tbody>
                                             {forecast_table.map((r, i) => (
                                                 <tr key={i}>
-                                                    {r.start_date && <td className="col-dim">{r.start_date}{r.end_date ? ` → ${r.end_date}` : ''}</td>}
+                                                    {r.start_date && <td className="col-dim col-p3">{r.start_date}{r.end_date ? ` → ${r.end_date}` : ''}</td>}
                                                     <td>{r.sprint_name}</td>
                                                     <td className="col-bad">{Math.round(r.bad_done)}</td>
                                                     <td className={r.bad_remaining === 0 ? 'col-zero' : 'col-bad'}>{r.bad_remaining === 0 ? '✓' : Math.round(r.bad_remaining)}</td>
@@ -1319,6 +1414,7 @@ function App() {
     const [route, setRoute]         = useState(parseHash);
     const [forceLogin, setForceLogin] = useState(false);
     const [theme, setTheme]         = useState(() => localStorage.getItem('raft_theme') || 'dark');
+    useVisualViewportVars();
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
